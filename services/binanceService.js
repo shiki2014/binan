@@ -1,0 +1,55 @@
+const { spotsAxios } = require('../axiosInstance/axiosInstance')
+const { createHmac } = require('crypto')
+const { apiSecret } = require('../config/config')
+
+function getSignature(paramsString) {
+  let signature = createHmac('sha256',apiSecret).update(paramsString).digest('hex')
+  console.log(signature,paramsString,apiSecret)
+  return signature
+}
+
+// 发起请求获取K线数据
+async function getKlines (symbol,limit) {
+	const res = await spotsAxios({
+    url: '/api/v3/klines',
+    method: 'get',
+    params: {
+      symbol,
+      interval:'12h',
+      limit:limit || 21
+    }
+  }).catch(error => {
+		console.error('请求失败:', error)
+	})
+	const klines = res.data;
+  return klines
+}
+// 获取当前价格
+async function getPrice() {
+	const response = await spotsAxios.get(`/api/v3/ticker/price?symbol=BTCUSDT`)
+	return response.data.price;
+}
+
+// 获取用户信息
+async function getUserData() {
+  let timestamp = new Date().getTime()
+  const res = await spotsAxios({
+    method: 'get',
+    url:'/fapi/v1/income',
+    params: {
+      timestamp,
+      signature:getSignature(`timestamp=${timestamp}`)
+    }
+  }).catch(error => {
+		console.error('请求失败:', error)
+	})
+  console.log(res.data)
+  return res.data
+}
+
+
+module.exports = {
+  getPrice,
+  getKlines,
+  getUserData
+};
