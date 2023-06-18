@@ -1,6 +1,5 @@
 // 定时控制器
 const schedule = require('node-schedule');
-const axios = require('axios');
 const { getExchangeInfo, contractOrder, getAccountData, getServiceTime, getKlines  } = require('../services/binanceContractService');
 const { exec } = require('child_process');
 const iconv = require('iconv-lite')
@@ -144,7 +143,6 @@ async function setTakeProfit () {
       ...getHighAndLowAndATR(klines.slice(0, klines.length - 1)),
       ...positionList[i]
     }
-    console.log(data)
     if (signal(data)){
       takeProfitList.push(data)
       let stopPrice = data.positionSide == 'SHORT' ? data.highestPoint : data.lowestPoint
@@ -162,6 +160,7 @@ async function setTakeProfit () {
 
 module.exports = async function () {
   console.log('定时交易策略开始')
+  setTakeProfit()
   schedule.scheduleJob('4 0 7,19 * * *',async function () {
     // 更新合约交易
     console.log('更新合约对开始');
@@ -171,7 +170,7 @@ module.exports = async function () {
   schedule.scheduleJob('4 0 8,20 * * *', async function () {
     // 获取最新数据
     console.log('获取下单交易数据下单')
-    order()
+    await order()
     console.log('开始仓位止盈设置')
     console.log(await setTakeProfit())
     console.log('二次获取测试')

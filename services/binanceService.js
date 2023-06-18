@@ -1,12 +1,5 @@
+// 现货交易
 const { spotsAxios } = require('../axiosInstance/axiosInstance')
-const { createHmac } = require('crypto')
-const { apiSecret } = require('../config/config')
-
-function getSignature(paramsString) {
-  let signature = createHmac('sha256',apiSecret).update(paramsString).digest('hex')
-  console.log(signature,paramsString,apiSecret)
-  return signature
-}
 
 // 发起请求获取K线数据
 async function getKlines (symbol,limit) {
@@ -37,8 +30,7 @@ async function getUserData() {
     method: 'get',
     url:'/fapi/v1/income',
     params: {
-      timestamp,
-      signature:getSignature(`timestamp=${timestamp}`)
+      timestamp
     }
   }).catch(error => {
 		console.error('请求失败:', error)
