@@ -47,12 +47,16 @@ let contractAxios = axios.create({
 
 function setConfig(config) {
   if (config.method === 'get' || config.method === 'GET') {
-    let signature = getSignature(objectToUrlParams(config.params))
-    config.params.signature = signature
+    if (config.params) {
+      let signature = getSignature(objectToUrlParams(config.params));
+      config.params.signature = signature
+    }
   }
   if (config.method === 'post' || config.method === 'POST') {
-    let signature = getSignature(objectToUrlParams(config.data))
-    config.data.signature = signature
+    if (config.data) {
+      let signature = getSignature(objectToUrlParams(config.data || {}))
+      config.data.signature = signature
+    }
   }
   return config
 }

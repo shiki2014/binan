@@ -9,7 +9,7 @@ async function getAccountPosition() {
 }
 
 module.exports = async function () {
-  console.log('合约属性', await getPositionRisk('KEYUSDT'));
+  // console.log('合约属性', await getPositionRisk('KEYUSDT'));
   console.log('当前仓位', await getAccountPosition());
-  console.log(await getPositionSideDual());
+  // console.log(await getPositionSideDual());
 }

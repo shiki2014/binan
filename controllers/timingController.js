@@ -160,7 +160,6 @@ async function setTakeProfit () {
 
 module.exports = async function () {
   console.log('定时交易策略开始')
-  setTakeProfit()
   schedule.scheduleJob('4 0 7,19 * * *',async function () {
     // 更新合约交易
     console.log('更新合约对开始');
@@ -173,7 +172,5 @@ module.exports = async function () {
     await order()
     console.log('开始仓位止盈设置')
     console.log(await setTakeProfit())
-    console.log('二次获取测试')
-    console.log(await getPreparingOrders(9000/2))
   })
 };
