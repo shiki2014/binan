@@ -1,4 +1,5 @@
-const { getPositionRisk, getAccountData, getPositionSideDual } = require('../services/binanceContractService');
+const { getPositionRisk, getAccountData, getPositionSideDual, getListenKey } = require('../services/binanceContractService');
+
 // 获取账户头寸
 async function getAccountPosition() {
   let res = await getAccountData()
@@ -10,6 +11,7 @@ async function getAccountPosition() {
 
 module.exports = async function () {
   // console.log('合约属性', await getPositionRisk('KEYUSDT'));
-  console.log('当前仓位', await getAccountPosition());
+  // console.log('当前仓位', await getAccountPosition());
+  console.log('getListenKey', await getListenKey());
   // console.log(await getPositionSideDual());
 }

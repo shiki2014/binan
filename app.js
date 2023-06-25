@@ -2,8 +2,9 @@ const express = require('express')
 const apiRoutes = require('./routes/apiRoutes')
 const path = require('path')
 const app = express()
-const port = 3000
+const port = 3001
 const timing = require('./controllers/timingController')
+const tracking = require('./controllers/priceTrackingController')
 const test =  require('./test/test')
 const log4js = require('log4js')
 
@@ -14,7 +15,7 @@ log4js.configure({
     errorFile: { type: 'file', filename: 'logs/error.log' }
   },
   categories: {
-    error: { appenders: ['errorFile'], level: 'error' },
+    error: { appenders: ['errorFile', 'console'], level: 'error' },
     default: { appenders: ['console', 'appFile'], level: 'debug' }
   }
 });
@@ -47,5 +48,7 @@ app.listen(port, () => {
 timing()
 
 // 测试用例
-test()
+// test()
 
+// 实时跟踪
+// tracking()

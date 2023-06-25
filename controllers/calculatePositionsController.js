@@ -1,4 +1,4 @@
-
+// 计算仓位控制器
 const {  getKlines  } = require('../services/binanceContractService');
 const fs = require('fs');
 // 整体逻辑
@@ -7,7 +7,8 @@ const fs = require('fs');
 // 在每天的20点和早上的8点进行获取所有合约的K线数据
 // 对每一个合约进行数据分析
 // 如果符合进场再通过ATR均衡计算仓位做多做空设置止损
-// 下个版本 对有仓位的进行并且符合移动移动止盈的仓位进行移动止盈
+// 符合条件后做止盈移动
+// 如果最近10跟k线低点大于开仓均价，则移动
 
 
 // 读取数据
@@ -26,7 +27,7 @@ function readFile(callback){
 
 
 // 单品种K线初始化函数
-function klinesInit(symbol,data,quantityPrecision,pricePrecision) {
+function klinesInit(symbol, data, quantityPrecision, pricePrecision) {
   let klines = data.map((item) => {
     return {
       open: parseFloat(item[1]),
@@ -38,9 +39,11 @@ function klinesInit(symbol,data,quantityPrecision,pricePrecision) {
     }
   })
   // 获取ATR高点低点
-  let HALAAtr = getHighAndLowAndATR(klines.slice(0, klines.length - 2)) // 高点低点和ATR
+  let HAL = getHighAndLow(klines.slice(0, klines.length - 2),symbol) // 高点低点
+  let ATR = getATR(klines.slice(0, klines.length - 1), 18, symbol)
   return {
-    ...HALAAtr,
+    ...HAL,
+    ATR,
     quantityPrecision, // 仓位精度
     pricePrecision, // 价格精度
     closePrice: klines[klines.length - 2].close,
@@ -75,8 +78,8 @@ function weightSorting(data){
 }
 
 
-// 寻找k线的最高点和最低点 ATR
-function getHighAndLowAndATR(klines) {
+// 寻找k线的最高点和最低点
+function getHighAndLow(klines, symbol) {
   // 解析K线数据
   const parsedKlines = klines.map(kline => ({
     high: parseFloat(kline.high), // 最高价
@@ -95,17 +98,45 @@ function getHighAndLowAndATR(klines) {
   })
   return {
     highestPoint,
-    lowestPoint,
-    ATR: getATR(klines, 18)
+    lowestPoint
   }
 }
+
+// 获取白名单
+function getWhiteList () {
+  try {
+    let data = fs.readFileSync('./data/whiteList.json')
+    return data.toString()
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+// 获取黑名单
+function getBlackList () {
+  try {
+    let data = fs.readFileSync('./data/blackList.json')
+    return data.toString()
+  } catch (err) {
+    console.error(err);
+  }
+}
+
 // 获取所有合约的K线数据并处理
 function getAllKlines() {
   return new Promise(async function (resolve, reject) {
     console.log('getAllKlines','开始获取所有K线数据')
     let data = []
-    let symbols = await getAllExchangeInfo()
+    let allExchangeInfo = await getAllExchangeInfo()
+    if (!allExchangeInfo) {
+      reject()
+    }
     let count = 0
+    let blackList = JSON.parse(getBlackList())
+    let whiteList = JSON.parse(getWhiteList())
+    let symbols = allExchangeInfo.filter((item) =>{
+      return !blackList.includes(item.symbol) || whiteList.includes(item.symbol)
+    })
     let allCount = symbols.length
     async function getData(symbol,quantityPrecision,pricePrecision) {
       let res = await getKlines(symbol,22).catch((err)=>{
@@ -122,12 +153,15 @@ function getAllKlines() {
       }
     }
     for (let i in symbols) {
-      getData(symbols[i].symbol,symbols[i].quantityPrecision,symbols[i].pricePrecision)
+      if(!blackList.includes(symbols[i].symbol) || whiteList.includes(symbols[i].symbol)){
+        getData(symbols[i].symbol,symbols[i].quantityPrecision,symbols[i].pricePrecision)
+      }
     }
   })
 }
+
 // 完全数据初始化函数 获取准备下单的数据
-async function getPreparingOrders(equity){
+async function getPreparingOrders(equity, positionIng){
   // 信号
   function signal(symbolData) {
     return symbolData.closePrice > symbolData.highestPoint || symbolData.closePrice < symbolData.lowestPoint
@@ -137,8 +171,15 @@ async function getPreparingOrders(equity){
   for (let i in data) {
     if (signal(data[i])){
       // 符合下单条件
+      let symbol = data[i].symbol
+      let positionLeverage = 1
+      for(let j in positionIng) {
+        if (positionIng[j].symbol === symbol){
+          positionLeverage = positionIng[j].leverage
+        }
+      }
       let direction = data[i].closePrice > data[i].highestPoint ? 1 : -1
-      let position = getPosition(data[i].ATR, data[i].closePrice, equity, direction, data[i].pricePrecision)
+      let position = getPosition(data[i].ATR, data[i].closePrice, equity, direction, data[i].pricePrecision, positionLeverage)
       preparingOrders.push({
         ...position,
         amplitude: getAmplitude(data[i]),
@@ -156,9 +197,31 @@ async function getPreparingOrders(equity){
   return preparingOrders
 }
 
+// 读取历史ATR使用同步
+function getHistoryATR(){
+  try {
+    let data = fs.readFileSync('./data/ATR.json')
+    return data.toString()
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+// 根据已经测量的ATR计算精确ATR
+function getATR(data, cycle, symbol) {
+  function round6 (x) {
+    return Math.round(x * 1000000) / 1000000
+  }
+  let historyATR = JSON.parse(getHistoryATR())
+  let kline = data[data.length - 1]
+  let kline_1 = data[data.length - 2]
+  let atr = historyATR[symbol]
+  let tr = Math.max(kline.high - kline.low, Math.abs(kline.high - kline_1.close), Math.abs(kline.low - kline_1.close))
+  return round6((tr + (cycle-1) * atr) / cycle)
+}
 
 // 根据周期计算ATR
-function getATR(data, cycle) {
+function getATRCompute(data, cycle) {
   function SMA(source, length) {
     let sum = 0.0
     for (let i = 0; i < length; ++i) {
@@ -204,7 +267,7 @@ function getATR(data, cycle) {
   return RMA(trArray, cycle)
 }
 // 仓位管理-ATR均衡 风险管理函数
-function getPosition(atr, price, equity, direction, pricePrecision) {
+function getPosition(atr, price, equity, direction, pricePrecision, leverageIng = 1) {
   // direction方向
   // ATR均衡策略规则
   // 每次下单为账号权益的10%
@@ -217,18 +280,20 @@ function getPosition(atr, price, equity, direction, pricePrecision) {
   let stopPrice = (direction > 0 ? (price - ATR18) :(price + ATR18)).toFixed(pricePrecision) // 止损价格
   let decline = ATR18 / price // 跌幅
   // 计算部分
-  if ( decline > 0.2 ){
+  if ( decline > 0.2 ) {
     // 如果跌幅大于20%
+    let position = leverageIng > leverage ? ((leverage/leverageIng) * ((equity * 0.02) / decline)) : (equity * 0.02) / decline
     return {
-      leverage, // 杠杆
-      position: (equity * 0.02) / decline, // 仓位
+      leverageIng, // 杠杆
+      position, // 仓位
       stopPrice // 止损价格
     }
   } else {
     leverage = Math.floor((equity  * 0.02) / (0.1 * equity * decline))
+    let position = leverageIng > leverage ? ((leverage/leverageIng) * (equity * 0.1 * leverage)) : equity * 0.1 * leverage
     return {
       leverage, // 杠杆
-      position: equity * 0.1 * leverage, // 仓位
+      position, // 仓位
       stopPrice // 止损价格
     }
   }
@@ -244,7 +309,8 @@ async function getAllExchangeInfo () {
 // 获取单个交易对的ATR
 async function getOneATR(symbol) {
   let res = await getKlines(symbol, 200)
-  let ATR = getATR(klinesInit(symbol, res.data).klines,18)
+  if (res.data.length < 19) return 0
+  let ATR = getATRCompute(klinesInit(symbol, res.data).klines,18)
   return ATR
 }
 
@@ -252,7 +318,8 @@ async function getOneATR(symbol) {
 module.exports = {
   getPreparingOrders,
   getAllExchangeInfo,
-  getHighAndLowAndATR,
+  getHighAndLow,
   klinesInit,
+  getATR,
   getOneATR
 }

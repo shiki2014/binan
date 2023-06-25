@@ -48,7 +48,7 @@ async function getPositionSideDual() {
       timestamp: new Date().getTime()
     }
   }).catch(error => {
-    console.error('请求失败:', error.response.data)
+    console.error('请求失败:', error?.response?.data)
   })
   return res && res.data
 }
@@ -63,7 +63,7 @@ async function getPositionRisk(symbol, limit) {
       timestamp: new Date().getTime()
     }
   }).catch(error => {
-    console.error('请求失败:', error.response.data)
+    console.error('请求失败:', error?.response?.data)
   })
   return res && res.data
 }
@@ -79,7 +79,7 @@ async function setMarginType(symbol, marginType) {
       timestamp: new Date().getTime()
     }
   }).catch(error => {
-    console.error('请求失败:', error.response.data, symbol)
+    console.error('请求失败:', error?.response?.data, symbol)
   })
   return '成功'
 }
@@ -95,7 +95,7 @@ async function setLeverage(symbol, leverage) {
       timestamp: new Date().getTime()
     }
   }).catch(error => {
-    console.error('请求失败:', error.response.data)
+    console.error('请求失败:', error?.response?.data)
   })
   return res
 }
@@ -125,7 +125,7 @@ async function contractOrder({ symbol, positionSide, quantity, stopPrice, levera
       quantity, // 下单数量
     }
   }).catch(error => {
-    console.error('下单失败:', error.response.data)
+    console.error('下单失败:', error?.response?.data)
   })
   if (res) {
     console.log('下单成功', res)
@@ -150,7 +150,7 @@ async function setStopPrice(symbol, positionSide, stopPrice) {
       stopPrice
     }
   }).catch(error => {
-    console.error('请求失败:', error.response.data)
+    console.error('请求失败:', error?.response?.data)
   })
   if (res) {
     console.log('修改止损止盈成功', res)
@@ -167,10 +167,44 @@ async function getAccountData() {
       timestamp: new Date().getTime()
     }
   }).catch(error => {
-    console.error('请求失败:', error.response.data)
+    console.error('请求失败:', error?.response?.data)
   })
   return res && res.data
 }
+
+// 生成listenKey
+async function getListenKey() {
+  const res = await contractAxios({
+    method: 'post',
+    url: '/fapi/v1/listenKey',
+  }).catch(error => {
+    console.error('请求失败:', error?.response?.data)
+  })
+  return res && res.data
+}
+
+// 延长listenKey有效期
+async function putListenKey() {
+  const res = await contractAxios({
+    method: 'put',
+    url: '/fapi/v1/listenKey',
+  }).catch(error => {
+    console.error('请求失败:', error?.response?.data)
+  })
+  return res && res.data
+}
+
+// 关闭listenKey
+async function deleteListenKey() {
+  const res = await contractAxios({
+    method: 'delete',
+    url: '/fapi/v1/listenKey',
+  }).catch(error => {
+    console.error('请求失败:', error?.response?.data)
+  })
+  return res && res.data
+}
+
 
 module.exports = {
   getServiceTime,
@@ -182,5 +216,7 @@ module.exports = {
   getAccountData,
   getPositionRisk,
   getPositionSideDual,
-  getExchangeInfo
+  getExchangeInfo,
+  putListenKey,
+  getListenKey
 };

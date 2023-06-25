@@ -68,13 +68,15 @@ spotsAxios.interceptors.request.use(setConfig)
 spotsAxios.interceptors.response.use(response => {
   return Promise.resolve(response)
 }, error => {
-  global.errorLogger(error.response.data)
+  error.message && global.errorLogger(error.message)
+  error.response && global.errorLogger(error.response.data)
   return Promise.reject(error)
 })
 contractAxios.interceptors.response.use(response => {
   return Promise.resolve(response)
 }, error => {
-  global.errorLogger(error.response.data)
+  error.message && global.errorLogger(error.message)
+  error.response && global.errorLogger(error.response.data)
   return Promise.reject(error)
 })
 
