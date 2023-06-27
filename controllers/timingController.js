@@ -211,13 +211,14 @@ async function getPositionRisk () {
 
 // 获取当前仓位
 async function start () {
+  getPositionRisk()
   // let time = await updateTime()
   // if (!time) return global.errorLogger('时间同步失败', time)
   // getPositionRisk()
   // updateAllExchangeInfo()
   // console.log('符合条件可以下单的仓位')
-  let list = await getPreparingOrders(3000)
-  console.log(list)
+  // let list = await getPreparingOrders(3000)
+  // console.log(list)
   // let orders = list.slice(0, 5)
   // for (let i in orders) {
   //   console.log(`===========\n名字 ${orders[i].symbol}\n方向 ${orders[i].direction < 0 ? '做空' : '做多'}\n杠杆 ${orders[i].leverage}\n数量USDT ${orders[i].position}\n价格 ${orders[i].closePrice}\n止损 ${orders[i].stopPrice}`)
@@ -239,7 +240,7 @@ module.exports = async function () {
   schedule.scheduleJob('4 0 7,19 * * *',async function () {
     // 更新合约交易
     console.log('更新合约对开始');
-    await updateTime()
+    // await updateTime()
     updateAllExchangeInfo()
   })
   schedule.scheduleJob('10 0 8,20 * * *', async function () {

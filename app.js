@@ -1,8 +1,9 @@
+require('dotenv').config();
 const express = require('express')
 const apiRoutes = require('./routes/apiRoutes')
 const path = require('path')
 const app = express()
-const port = 3000
+const port = process.env.NODE_ENV === 'development' ? 3000 : 80
 const timing = require('./controllers/timingController')
 const tracking = require('./controllers/priceTrackingController')
 const test =  require('./test/test')
