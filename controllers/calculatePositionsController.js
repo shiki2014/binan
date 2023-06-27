@@ -46,7 +46,11 @@ function klinesInit(symbol, data, quantityPrecision, pricePrecision) {
     ATR,
     quantityPrecision, // 仓位精度
     pricePrecision, // 价格精度
+    currentPrice: klines[klines.length - 1].close,
     closePrice: klines[klines.length - 2].close,
+    openPrice: klines[klines.length - 2].open,
+    highPrice: klines[klines.length - 2].high,
+    lowPrice: klines[klines.length - 2].low,
     transactionsNumber:klines[klines.length - 2].transactionsNumber,
     symbol,
     klines
@@ -125,7 +129,7 @@ function getBlackList () {
 // 获取所有合约的K线数据并处理
 function getAllKlines() {
   return new Promise(async function (resolve, reject) {
-    console.log('getAllKlines','开始获取所有K线数据')
+    console.log('getAllKlines','开始获取所有K线数据并处理')
     let data = []
     let allExchangeInfo = await getAllExchangeInfo()
     if (!allExchangeInfo) {
@@ -164,35 +168,38 @@ function getAllKlines() {
 async function getPreparingOrders(equity, positionIng){
   // 信号
   function signal(symbolData) {
-    return symbolData.closePrice > symbolData.highestPoint || symbolData.closePrice < symbolData.lowestPoint
+    // k线收盘时，最高点突破，并且是阳线
+    // k线收盘时，最低点突破，并且是阴线
+    let LONG = symbolData.highPrice > symbolData.highestPoint && symbolData.closePrice >= symbolData.openPrice
+    let SHORT = symbolData.lowPrice < symbolData.lowestPoint && symbolData.closePrice <= symbolData.openPrice
+    return LONG || SHORT
   }
-  let data = weightSorting(await getAllKlines())
+  let primitiveData = weightSorting(await getAllKlines())
   let preparingOrders = [] // 准备下单的数据
+  let data = primitiveData.filter((item) => signal(item)) // 符合条件的下单
   for (let i in data) {
-    if (signal(data[i])){
-      // 符合下单条件
-      let symbol = data[i].symbol
-      let positionLeverage = 1
-      for(let j in positionIng) {
-        if (positionIng[j].symbol === symbol){
-          positionLeverage = positionIng[j].leverage
-        }
+    // 符合下单条件
+    let symbol = data[i].symbol
+    let positionLeverage = 1
+    for(let j in positionIng) {
+      if (positionIng[j].symbol === symbol){
+        positionLeverage = positionIng[j].leverage
       }
-      let direction = data[i].closePrice > data[i].highestPoint ? 1 : -1
-      let position = getPosition(data[i].ATR, data[i].closePrice, equity, direction, data[i].pricePrecision, positionLeverage)
-      preparingOrders.push({
-        ...position,
-        amplitude: getAmplitude(data[i]),
-        ATR:data[i].ATR,
-        closePrice:data[i].closePrice,
-        quantityPrecision: data[i].quantityPrecision,
-        pricePrecision: data[i].pricePrecision,
-        quantity:(position.position / data[i].closePrice).toFixed(data[i].quantityPrecision),
-        direction,
-        transactionsNumber:data[i].klines[data[i].klines.length - 1].transactionsNumber,
-        symbol: data[i].symbol
-      })
     }
+    let direction = data[i].highPrice > data[i].highestPoint ? 1 : -1
+    let position = getPosition(data[i].ATR, data[i].currentPrice, equity, direction, data[i].pricePrecision, positionLeverage)
+    preparingOrders.push({
+      ...position,
+      amplitude: getAmplitude(data[i]),
+      ATR:data[i].ATR,
+      closePrice:data[i].closePrice,
+      quantityPrecision: data[i].quantityPrecision,
+      pricePrecision: data[i].pricePrecision,
+      quantity:(position.position / data[i].closePrice).toFixed(data[i].quantityPrecision),
+      direction,
+      transactionsNumber:data[i].klines[data[i].klines.length - 1].transactionsNumber,
+      symbol: data[i].symbol
+    })
   }
   return preparingOrders
 }
@@ -275,6 +282,8 @@ function getPosition(atr, price, equity, direction, pricePrecision, leverageIng 
   // 止损小于总体账户权益的2% （亏损下单额的20%平仓）
   // 如果1.8的ATR大于了整体账户权益的2% 则降低账户权益由10%下降到直到条件满足
   // 在规则内选择最大的杠杆
+  let quotaRatio = 0.1 // 额度比例
+  let stopMargin = 0.02 // 止损小于总体账户权益的2%
   let leverage = 1 // 杠杆
   let ATR18 = 1.8 * atr // 使用ATR周期为18计算ATR
   let stopPrice = (direction > 0 ? (price - ATR18) :(price + ATR18)).toFixed(pricePrecision) // 止损价格
@@ -282,15 +291,15 @@ function getPosition(atr, price, equity, direction, pricePrecision, leverageIng 
   // 计算部分
   if ( decline > 0.2 ) {
     // 如果跌幅大于20%
-    let position = leverageIng > leverage ? ((leverage/leverageIng) * ((equity * 0.02) / decline)) : (equity * 0.02) / decline
+    let position = leverageIng > leverage ? ((leverage/leverageIng) * ((equity * stopMargin) / decline)) : (equity * stopMargin) / decline
     return {
       leverageIng, // 杠杆
       position, // 仓位
       stopPrice // 止损价格
     }
   } else {
-    leverage = Math.floor((equity  * 0.02) / (0.1 * equity * decline))
-    let position = leverageIng > leverage ? ((leverage/leverageIng) * (equity * 0.1 * leverage)) : equity * 0.1 * leverage
+    leverage = Math.floor((equity  * stopMargin) / (quotaRatio * equity * decline))
+    let position = leverageIng > leverage ? ((leverage/leverageIng) * (equity * quotaRatio * leverage)) : equity * quotaRatio * leverage
     return {
       leverage, // 杠杆
       position, // 仓位

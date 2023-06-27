@@ -4,7 +4,7 @@ const { SocksProxyAgent } = require('socks-proxy-agent')
 const { createHmac } = require('crypto')
 const { apiSecret } = require('../config/config')
 const httpsAgent = new SocksProxyAgent(apiSocks)
-
+require('dotenv').config();
 // 签名
 function getSignature(paramsString) {
   let signature = createHmac('sha256', apiSecret).update(paramsString).digest('hex')
@@ -30,7 +30,7 @@ function objectToUrlParams(object) {
 // 创建一个新的axios实例 并返回
 let spotsAxios = axios.create({
   baseURL: apiDomain1,
-  httpsAgent,
+  httpsAgent: process.env.NODE_ENV == 'development' ? httpsAgent : {},
   headers: {
     'Content-Type': 'application/x-www-form-urlencoded',
     'X-MBX-APIKEY': apiKey
@@ -38,7 +38,7 @@ let spotsAxios = axios.create({
 })
 let contractAxios = axios.create({
   baseURL: apiDomainContract,
-  httpsAgent,
+  httpsAgent: process.env.NODE_ENV == 'development' ? httpsAgent : {},
   headers: {
     'Content-Type': 'application/x-www-form-urlencoded',
     'X-MBX-APIKEY': apiKey

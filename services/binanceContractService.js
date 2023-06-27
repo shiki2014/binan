@@ -158,6 +158,22 @@ async function setStopPrice(symbol, positionSide, stopPrice) {
   return res
 }
 
+// 查询订单修改历史
+// 可以获取单个品种的止损价格
+async function getOrderAmendment(symbol) {
+  const res = await contractAxios({
+    method: 'get',
+    url: '/fapi/v1/allOrders',
+    params: {
+      symbol,
+      timestamp: new Date().getTime()
+    }
+  }).catch(error => {
+    console.error('请求失败:', error?.response?.data)
+  })
+  return res && res.data
+}
+
 // 获取账户信息
 async function getAccountData() {
   const res = await contractAxios({
@@ -218,5 +234,6 @@ module.exports = {
   getPositionSideDual,
   getExchangeInfo,
   putListenKey,
+  getOrderAmendment,
   getListenKey
 };
