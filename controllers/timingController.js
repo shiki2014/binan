@@ -208,21 +208,37 @@ async function getCurrentATR (symbol) {
   return ATR
 }
 
-
-module.exports = async function () {
-  console.log('定时交易策略开始')
-  order()
-  schedule.scheduleJob('4 0 7,19 * * *',async function () {
+module.exports = {
+  // 更新合约对
+  updatePayInfo: async () => {
     // 更新合约交易
     console.log('更新合约对开始');
     await updateTime()
     updateAllExchangeInfo()
-  })
-  schedule.scheduleJob('10 0 8,20 * * *', async function () {
+  },
+  orderHandler: async () => {
     // 获取最新数据
     console.log('获取下单交易数据下单')
     await order()
     console.log('开始仓位止盈设置')
     console.log(await setTakeProfit())
-  })
-};
+  }
+}
+
+// module.exports = async function () {
+//   console.log('定时交易策略开始')
+//   order()
+//   schedule.scheduleJob('4 0 7,19 * * *',async function () {
+//     // 更新合约交易
+//     console.log('更新合约对开始');
+//     await updateTime()
+//     updateAllExchangeInfo()
+//   })
+//   schedule.scheduleJob('10 0 8,20 * * *', async function () {
+//     // 获取最新数据
+//     console.log('获取下单交易数据下单')
+//     await order()
+//     console.log('开始仓位止盈设置')
+//     console.log(await setTakeProfit())
+//   })
+// };

@@ -3,12 +3,17 @@ const apiController = require('../controllers/apiController');
 
 const router = express.Router();
 
+const { updatePayInfo, orderHandler } = require('../controllers/timingController')
+
 router.get('/price', apiController.getPrice);
 
 
 router.get('/users', function(req, res) {
   res.send('Hello from Node.js API');
 });
+
+router.get('/updatePayInfo', updatePayInfo)
+router.get('/orderHandler', orderHandler)
 
 
 
