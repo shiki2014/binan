@@ -45,7 +45,7 @@ app.listen(port, () => {
 });
 
 // 定时应用程序
-// timing()
+timing()
 
 // 测试用例
 // test()
