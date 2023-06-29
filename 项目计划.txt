@@ -41,3 +41,15 @@
 
 
 9.币本位合约交易
+
+
+
+
+
+
+部署命令
+
+
+ps -ef | grep node
+sudo kill -9 pid
+node ~/binan/app.js &
