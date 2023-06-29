@@ -30,7 +30,7 @@ async function getWebSocket() {
   let data = await getListenKey();
   let listenKey = data.listenKey;
   WebSocket.client
-  return new WebSocket(`wss://fstream.binance.com/ws/${listenKey}`, { agent });
+  return new WebSocket(`wss://fstream.binance.com/ws/${listenKey}`);
 }
 
 
