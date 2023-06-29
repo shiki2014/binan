@@ -104,15 +104,14 @@ async function setLeverage(symbol, leverage) {
 async function contractOrder({ symbol, positionSide, quantity, stopPrice, leverage }) {
   let marginTypeResData = await getPositionRisk(symbol)
   let marginType = marginTypeResData[0].marginType
-  console.log(marginType, symbol)
   if (marginType == 'ISOLATED' || marginType == 'isolated') {
-    console.log('无需设置逐全仓模式设置')
+    global.logger.info('无需设置逐全仓模式设置', symbol)
   } else {
-    let setMarginTypeRes = await setMarginType(symbol, 'ISOLATED')
-    console.log('逐全仓模式设置成功', setMarginTypeRes, symbol)
+    await setMarginType(symbol, 'ISOLATED')
+    global.logger.info('逐全仓模式设置成功', symbol)
   }
-  let leverageRes = await setLeverage(symbol, leverage)
-  console.log('杠杆设置成功', leverageRes)
+  await setLeverage(symbol, leverage)
+  global.logger.info('杠杆设置成功', symbol)
   const res = await contractAxios({
     method: 'post',
     url: '/fapi/v1/order',

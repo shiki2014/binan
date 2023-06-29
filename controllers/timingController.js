@@ -116,13 +116,13 @@ async function order (){
   let position = await getAccountPosition()
   let orderListOriginal = await getPreparingOrders(equity/5, position)
   if (orderListOriginal.length == 0){
-    console.log('没有符合条件的标的')
+    global.logger.info('没有符合条件的标的')
     return
   }
   let orderList = orderListOriginal.slice(0, 10) // 符合条件的前10
   let count = 0
   let allCount = orderList.length
-  console.log('开始下单',orderListOriginal)
+  global.logger.info('开始下单',orderListOriginal)
   async function setOrder(item){
     await contractOrder({
       symbol: item.symbol,
@@ -133,8 +133,8 @@ async function order (){
     })
     count++
     if(count == allCount){
-      console.log('下单完毕');
-      console.log('当前仓位',await getAccountPosition())
+      global.logger.info('下单完毕');
+      global.logger.info('当前仓位',await getAccountPosition())
     }
   }
   for (let i in orderList){
