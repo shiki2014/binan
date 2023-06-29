@@ -1,5 +1,5 @@
 // 定时控制器
-// const schedule = require('node-schedule');
+const schedule = require('node-schedule');
 const { getExchangeInfo, contractOrder, getAccountData, getServiceTime, getKlines, setStopPrice  } = require('../services/binanceContractService');
 const { exec } = require('child_process');
 const iconv = require('iconv-lite')
