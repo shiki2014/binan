@@ -181,6 +181,7 @@ async function getPreparingOrders(equity, positionIng){
     // 符合下单条件
     let symbol = data[i].symbol
     let positionLeverage = 1
+    // positionLeverage = positionIng.find(item => item.symbol === symbol).leverage || 1
     for(let j in positionIng) {
       if (positionIng[j].symbol === symbol){
         positionLeverage = positionIng[j].leverage
@@ -274,7 +275,7 @@ function getATRCompute(data, cycle) {
   return RMA(trArray, cycle)
 }
 // 仓位管理-ATR均衡 风险管理函数
-function getPosition(atr, price, equity, direction, pricePrecision, leverageIng = 1) {
+function getPosition(atr, price, equity, direction, pricePrecision, leverageIng) {
   // direction方向
   // ATR均衡策略规则
   // 每次下单为账号权益的10%
@@ -293,7 +294,7 @@ function getPosition(atr, price, equity, direction, pricePrecision, leverageIng 
     // 如果跌幅大于20%
     let position = leverageIng > leverage ? ((leverage/leverageIng) * ((equity * stopMargin) / decline)) : (equity * stopMargin) / decline
     return {
-      leverageIng, // 杠杆
+      leverage: leverageIng > 1 ? leverageIng : 1, // 杠杆
       position, // 仓位
       stopPrice // 止损价格
     }
@@ -301,7 +302,7 @@ function getPosition(atr, price, equity, direction, pricePrecision, leverageIng 
     leverage = Math.floor((equity  * stopMargin) / (quotaRatio * equity * decline))
     let position = leverageIng > leverage ? ((leverage/leverageIng) * (equity * quotaRatio * leverage)) : equity * quotaRatio * leverage
     return {
-      leverage, // 杠杆
+      leverage: leverageIng > leverage ? leverageIng : leverage, // 杠杆
       position, // 仓位
       stopPrice // 止损价格
     }

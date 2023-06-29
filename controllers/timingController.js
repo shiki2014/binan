@@ -1,6 +1,6 @@
 // 定时控制器
 const schedule = require('node-schedule');
-const { getExchangeInfo, contractOrder, getAccountData, getServiceTime, getKlines, setStopPrice, getOrderAmendment  } = require('../services/binanceContractService');
+const { getExchangeInfo, contractOrder, setLeverage, getAccountData, getServiceTime, getKlines, setStopPrice, getOrderAmendment  } = require('../services/binanceContractService');
 const { exec } = require('child_process');
 const iconv = require('iconv-lite')
 const fs = require('fs');
@@ -212,17 +212,17 @@ async function getPositionRisk () {
 // 获取当前仓位
 async function start () {
   getPositionRisk()
-  // let time = await updateTime()
-  // if (!time) return global.errorLogger('时间同步失败', time)
-  // getPositionRisk()
-  // updateAllExchangeInfo()
-  // console.log('符合条件可以下单的仓位')
-  // let list = await getPreparingOrders(3000)
-  // console.log(list)
-  // let orders = list.slice(0, 5)
-  // for (let i in orders) {
-  //   console.log(`===========\n名字 ${orders[i].symbol}\n方向 ${orders[i].direction < 0 ? '做空' : '做多'}\n杠杆 ${orders[i].leverage}\n数量USDT ${orders[i].position}\n价格 ${orders[i].closePrice}\n止损 ${orders[i].stopPrice}`)
-  // }
+  let time = await updateTime()
+  if (!time) return global.errorLogger('时间同步失败', time)
+  getPositionRisk()
+  updateAllExchangeInfo()
+  console.log('符合条件可以下单的仓位')
+  let list = await getPreparingOrders(3000)
+  console.log(list)
+  let orders = list.slice(0, 5)
+  for (let i in orders) {
+    console.log(`===========\n名字 ${orders[i].symbol}\n方向 ${orders[i].direction < 0 ? '做空' : '做多'}\n杠杆 ${orders[i].leverage}\n数量USDT ${orders[i].position}\n价格 ${orders[i].closePrice}\n止损 ${orders[i].stopPrice}`)
+  }
 }
 
 // 获取当前ATR
