@@ -16,7 +16,7 @@ async function getPrice(req, res) {
     const data = await getAccountPosition()
     res.send(data)
   } catch (error) {
-    console.error('Error fetching market data:', error);
+    global.errorLogger('Error fetching market data:', error);
     res.status(500).send('An error occurred while fetching market data');
   }
 }

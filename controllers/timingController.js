@@ -10,7 +10,7 @@ const { getPreparingOrders, getAllExchangeInfo, getOneATR, getHighAndLow, klines
 function writeFile(jsonString, callback){
   fs.writeFile('./data/data.json', jsonString, (err) => {
     if (err) {
-      console.error(err)
+      global.errorLogger(err)
       process.exit(1)
     }
     callback && callback(true)
@@ -36,7 +36,7 @@ async function updateTime() {
     return new Promise((resolve, reject) => {
       exec(command, {'shell':'powershell.exe', encoding: 'buffer'}, (error, stdout, stderr) => {
         if (error) {
-          console.error(`exec error: ${error}`)
+          global.errorLogger(`exec error: ${error}`)
           reject()
           return
         }
@@ -58,7 +58,7 @@ async function updateAllATR(callback) {
   function writeFile (){
     fs.writeFile('./data/ATR.json', JSON.stringify(ATRObject), (err) => {
       if (err) {
-        console.error(err)
+        global.errorLogger(err)
         process.exit(1)
         return false
       }
@@ -168,11 +168,11 @@ async function setTakeProfit () {
       takeProfitList.push(data)
       let stopPrice = data.positionSide == 'SHORT' ? data.highestPoint : data.lowestPoint
       await setStopPrice(data.symbol, data.positionSide, stopPrice)
-      console.log(`${data.symbol}设置止盈成功`)
+      global.logger.info(`${data.symbol}设置止盈成功`)
     }
   }
   if (takeProfitList.length === 0){
-    console.log('没有需要设置止盈的标的物')
+    global.logger.info('没有需要设置止盈的标的物')
   }
 
   return takeProfitList
@@ -235,19 +235,19 @@ async function getCurrentATR (symbol) {
 
 
 module.exports = async function () {
-  console.log('定时交易策略开始')
-  start()
+  global.logger.info('定时交易策略开始')
+  // start()
   schedule.scheduleJob('4 0 7,19 * * *',async function () {
     // 更新合约交易
-    console.log('更新合约对开始');
+    global.logger.info('更新合约对开始');
     // await updateTime()
     updateAllExchangeInfo()
   })
   schedule.scheduleJob('10 0 8,20 * * *', async function () {
     // 获取最新数据
-    console.log('获取下单交易数据下单')
+    global.logger.info('获取下单交易数据下单')
     await order()
-    console.log('开始仓位止盈设置')
-    console.log(await setTakeProfit())
+    global.logger.info('开始仓位止盈设置')
+    global.logger.info(await setTakeProfit())
   })
 };

@@ -7,7 +7,7 @@ async function getServiceTime() {
     method: 'get',
     url: '/fapi/v1/time',
   }).catch(error => {
-    console.error('请求失败:', error)
+    global.errorLogger('请求失败:', error)
   })
   return res
 }
@@ -18,7 +18,7 @@ async function getExchangeInfo() {
     method: 'get',
     url: '/fapi/v1/exchangeInfo',
   }).catch(error => {
-    console.error('请求失败:', error)
+    global.errorLogger('请求失败:', error)
   })
   return res
 }
@@ -34,7 +34,7 @@ async function getKlines(symbol, limit) {
       interval: '12h'
     }
   }).catch(error => {
-    console.error('请求失败:', error)
+    global.errorLogger('请求失败:', error)
   })
   return res
 }
@@ -48,7 +48,7 @@ async function getPositionSideDual() {
       timestamp: new Date().getTime()
     }
   }).catch(error => {
-    console.error('请求失败:', error?.response?.data)
+    global.errorLogger('请求失败:', error?.response?.data)
   })
   return res && res.data
 }
@@ -63,7 +63,7 @@ async function getPositionRisk(symbol, limit) {
       timestamp: new Date().getTime()
     }
   }).catch(error => {
-    console.error('请求失败:', error?.response?.data)
+    global.errorLogger('请求失败:', error?.response?.data)
   })
   return res && res.data
 }
@@ -79,7 +79,7 @@ async function setMarginType(symbol, marginType) {
       timestamp: new Date().getTime()
     }
   }).catch(error => {
-    console.error('请求失败:', error?.response?.data, symbol)
+    global.errorLogger('请求失败:', error?.response?.data, symbol)
   })
   return '成功'
 }
@@ -95,7 +95,7 @@ async function setLeverage(symbol, leverage) {
       timestamp: new Date().getTime()
     }
   }).catch(error => {
-    console.error('请求失败:', error?.response?.data)
+    global.errorLogger('请求失败:', error?.response?.data)
   })
   return res
 }
@@ -125,10 +125,10 @@ async function contractOrder({ symbol, positionSide, quantity, stopPrice, levera
       quantity, // 下单数量
     }
   }).catch(error => {
-    console.error('下单失败:', error?.response?.data)
+    global.errorLogger('下单失败:', error?.response?.data)
   })
   if (res) {
-    console.log('下单成功', res)
+    global.logger.info('下单成功', res)
     await setStopPrice(symbol, positionSide, stopPrice)
   }
   return res
@@ -150,10 +150,10 @@ async function setStopPrice(symbol, positionSide, stopPrice) {
       stopPrice
     }
   }).catch(error => {
-    console.error('请求失败:', error?.response?.data)
+    global.errorLogger('请求失败:', error?.response?.data)
   })
   if (res) {
-    console.log('修改止损止盈成功', res)
+    global.logger.info('修改止损止盈成功', res)
   }
   return res
 }
@@ -169,7 +169,7 @@ async function getOrderAmendment(symbol) {
       timestamp: new Date().getTime()
     }
   }).catch(error => {
-    console.error('请求失败:', error?.response?.data)
+    global.errorLogger('请求失败:', error?.response?.data)
   })
   return res && res.data
 }
@@ -183,7 +183,7 @@ async function getAccountData() {
       timestamp: new Date().getTime()
     }
   }).catch(error => {
-    console.error('请求失败:', error?.response?.data)
+    global.errorLogger('请求失败:', error?.response?.data)
   })
   return res && res.data
 }
@@ -194,7 +194,7 @@ async function getListenKey() {
     method: 'post',
     url: '/fapi/v1/listenKey',
   }).catch(error => {
-    console.error('请求失败:', error?.response?.data)
+    global.errorLogger('请求失败:', error?.response?.data)
   })
   return res && res.data
 }
@@ -205,7 +205,7 @@ async function putListenKey() {
     method: 'put',
     url: '/fapi/v1/listenKey',
   }).catch(error => {
-    console.error('请求失败:', error?.response?.data)
+    global.errorLogger('请求失败:', error?.response?.data)
   })
   return res && res.data
 }
@@ -216,7 +216,7 @@ async function deleteListenKey() {
     method: 'delete',
     url: '/fapi/v1/listenKey',
   }).catch(error => {
-    console.error('请求失败:', error?.response?.data)
+    global.errorLogger('请求失败:', error?.response?.data)
   })
   return res && res.data
 }

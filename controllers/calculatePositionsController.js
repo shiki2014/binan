@@ -17,7 +17,7 @@ function readFile(callback){
     fs.readFile('./data/data.json', function (err, data) {
       if (err) {
         reject(err);
-        console.error(err)
+        global.errorLogger(err)
         process.exit(1)
       }
       resolve(data.toString())
@@ -112,7 +112,7 @@ function getWhiteList () {
     let data = fs.readFileSync('./data/whiteList.json')
     return data.toString()
   } catch (err) {
-    console.error(err);
+    global.errorLogger(err);
   }
 }
 
@@ -122,14 +122,14 @@ function getBlackList () {
     let data = fs.readFileSync('./data/blackList.json')
     return data.toString()
   } catch (err) {
-    console.error(err);
+    global.errorLogger(err);
   }
 }
 
 // 获取所有合约的K线数据并处理
 function getAllKlines() {
   return new Promise(async function (resolve, reject) {
-    console.log('getAllKlines','开始获取所有K线数据并处理')
+    global.logger.info('getAllKlines','开始获取所有K线数据并处理')
     let data = []
     let allExchangeInfo = await getAllExchangeInfo()
     if (!allExchangeInfo) {
@@ -152,7 +152,7 @@ function getAllKlines() {
         data.push(klinesInit(symbol,res.data,quantityPrecision,pricePrecision))
       }
       if (count === allCount) {
-        console.log('所有K线数据获取完毕')
+        global.logger.info('所有K线数据获取完毕')
         resolve(data)
       }
     }
@@ -210,7 +210,7 @@ function getHistoryATR(){
     let data = fs.readFileSync('./data/ATR.json')
     return data.toString()
   } catch (err) {
-    console.error(err);
+    global.errorLogger(err);
   }
 }
 
