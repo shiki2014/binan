@@ -114,12 +114,12 @@ async function getAccountPosition() {
 async function order (){
   let equity = await getMaxAvailableBalance()
   let position = await getAccountPosition()
-  let orderListOriginal = await getPreparingOrders(equity/5, position)
+  let orderListOriginal = await getPreparingOrders(equity/4, position)
   if (orderListOriginal.length == 0){
     global.logger.info('没有符合条件的标的')
     return
   }
-  let orderList = orderListOriginal.slice(0, 10) // 符合条件的前10
+  let orderList = orderListOriginal.slice(0, 8) // 符合条件的前10
   let count = 0
   let allCount = orderList.length
   global.logger.info('开始下单',orderListOriginal)
