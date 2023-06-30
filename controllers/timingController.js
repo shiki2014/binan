@@ -107,7 +107,7 @@ async function getAccountPosition() {
   let allPositions = res.positions
   return allPositions.filter((item)=>{
     return Math.abs(item.positionAmt) > 0
-  }) // 保证金总余额
+  })
 }
 
 // 下单！
