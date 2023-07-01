@@ -66,6 +66,7 @@ async function startTracking() {
 
 
 function positionMonitor(){
+  global.logger.info('开始跟踪')
   schedule.scheduleJob('0 0/1 * * * ?',async function () {
     let position = await getAccountPosition()
     for (let i in position) {
