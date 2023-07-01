@@ -122,7 +122,7 @@ async function order (){
   let orderList = orderListOriginal.slice(0, 8) // 符合条件的前10
   let count = 0
   let allCount = orderList.length
-  global.logger.info('开始下单',orderListOriginal)
+  global.logger.info('开始下单',orderListOriginal.map(item => item.symbol))
   async function setOrder(item){
     await contractOrder({
       symbol: item.symbol,
@@ -133,8 +133,7 @@ async function order (){
     })
     count++
     if(count == allCount){
-      global.logger.info('下单完毕');
-      global.logger.info('当前仓位',await getAccountPosition())
+      global.logger.info('下单完毕')
     }
   }
   for (let i in orderList){
@@ -148,10 +147,10 @@ async function setTakeProfit () {
   let takeProfitList = []
   function signal (item){
     if (item.positionSide == 'SHORT'){
-      return item.highestPoint < item.entryPrice
+      return item.highestPoint < Number(item.entryPrice)
     }
     if (item.positionSide == 'LONG'){
-      return item.lowestPoint > item.entryPrice
+      return item.lowestPoint > Number(item.entryPrice)
     }
     return false
   }
