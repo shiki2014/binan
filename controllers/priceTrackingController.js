@@ -73,7 +73,6 @@ function positionMonitor(){
       let unrealizedProfit = Number(position[i].unrealizedProfit) // 未实现盈亏
       let isolatedWallet = Number(position[i].isolatedWallet) // 保证金
       if (unrealizedProfit > isolatedWallet) {
-        global.logger.info(position[i].symbol,'盈利已经大于保证金')
         stopPrice(position[i])
       }
     }
@@ -127,7 +126,7 @@ function stopPrice(position) {
 async function setNewStopPrice(symbol, stopPrice, direction) {
   let positionSide = direction > 0 ? 'LONG' : 'SHORT'
   await setStopPrice(symbol, positionSide, stopPrice)
-  global.logger.info(`${symbol}设置止盈成功`)
+  global.logger.info(`${symbol}跟踪设置止盈成功`)
 }
 
 module.exports = async function () {

@@ -247,6 +247,6 @@ module.exports = async function () {
     global.logger.info('获取下单交易数据下单')
     await order()
     global.logger.info('开始仓位止盈设置')
-    global.logger.info(await setTakeProfit())
+    setTakeProfit()
   })
 };
