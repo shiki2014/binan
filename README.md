@@ -34,9 +34,6 @@ API_KEY="your-api-key-here"
 API_SECRET="your-api-secret-here"
 ```
 
-
-### 运行系统
-
 ### 安装
 
 要运行这个项目，你需要先安装所需的npm软件包。请按照以下步骤进行安装：
