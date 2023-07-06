@@ -32,7 +32,7 @@
 NODE_ENV="development"
 API_KEY="your-api-key-here"
 API_SECRET="your-api-secret-here"
-```env
+```
 
 
 ### 运行系统
