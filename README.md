@@ -26,19 +26,18 @@
 
 在运行系统之前，请先配置相关参数，包括API密钥、交易品种、交易周期等。你可以在 `.env` 文件中进行配置。
 请在根目录创建`.env` 文件
-## 示例代码
+### 示例代码
 
 ```env
-
 NODE_ENV="development"
 API_KEY="your-api-key-here"
 API_SECRET="your-api-secret-here"
-
+```env
 
 
 ### 运行系统
 
-## 安装
+### 安装
 
 要运行这个项目，你需要先安装所需的npm软件包。请按照以下步骤进行安装：
 
@@ -51,7 +50,7 @@ API_SECRET="your-api-secret-here"
    ```shell
    npm install
 
-## 运行
+### 运行
 运行 `app.js` 文件即可启动程序，本系统会自动连接币安API并执行交易。你也可以将系统部署在服务器上，实现24小时不间断的交易。
 
 ## 风险提示
