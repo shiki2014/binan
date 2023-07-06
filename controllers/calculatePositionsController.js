@@ -228,6 +228,29 @@ function getATR(data, cycle, symbol) {
   return round6((tr + (cycle-1) * atr) / cycle)
 }
 
+// 根据k线计算波动率
+function getVolCompute(priceData){
+  // 计算对数收益率
+  const returns = [];
+  for (let i = 1; i < priceData.length; i++) {
+    const currentPrice = priceData[i].close; // 使用收盘价进行计算
+    const previousPrice = priceData[i - 1].close;
+    const logReturn = Math.log(currentPrice / previousPrice);
+    returns.push(logReturn);
+  }
+  // 计算平均对数收益率
+  const sumReturns = returns.reduce((sum, ret) => sum + ret, 0);
+  const averageReturn = sumReturns / returns.length;
+  // 计算标准差
+  const squaredDeviations = returns.map(ret => Math.pow(ret - averageReturn, 2));
+  const sumSquaredDeviations = squaredDeviations.reduce((sum, dev) => sum + dev, 0);
+  const standardDeviation = Math.sqrt(sumSquaredDeviations / (returns.length - 1));
+  // 根据比例因子计算波动率
+  const scalingFactor = Math.sqrt(200); // 假设一年有200个交易日
+  const volatility = standardDeviation * scalingFactor;
+  return volatility;
+}
+
 // 根据周期计算ATR
 function getATRCompute(data, cycle) {
   function SMA(source, length) {
@@ -274,6 +297,7 @@ function getATRCompute(data, cycle) {
   }
   return RMA(trArray, cycle)
 }
+
 // 仓位管理-ATR均衡 风险管理函数
 function getPosition(atr, price, equity, direction, pricePrecision, leverageIng) {
   // direction方向
@@ -324,12 +348,20 @@ async function getOneATR(symbol) {
   return ATR
 }
 
+// 获取单个品种的波动率
+async function getOneVol() {
+  let res = await getKlines(symbol, 200)
+  if (res.data.length < 19) return 0
+  let klines = klinesInit(symbol, res.data).klines
+  return getVolCompute(klines)
+}
 
 module.exports = {
   getPreparingOrders,
   getAllExchangeInfo,
   getHighAndLow,
   klinesInit,
+  getOneVol,
   getATR,
   getOneATR
 }

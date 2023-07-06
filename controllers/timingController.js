@@ -4,7 +4,7 @@ const { getExchangeInfo, contractOrder, setLeverage, getAccountData, getServiceT
 const { exec } = require('child_process');
 const iconv = require('iconv-lite')
 const fs = require('fs');
-const { getPreparingOrders, getAllExchangeInfo, getOneATR, getHighAndLow, klinesInit, getATR } = require('./calculatePositionsController');
+const { getPreparingOrders, getAllExchangeInfo, getOneATR, getHighAndLow, klinesInit, getATR, getOneVol } = require('./calculatePositionsController');
 
 // 写入数据
 function writeFile(jsonString, callback){
@@ -49,36 +49,70 @@ async function updateTime() {
   return execData
 }
 
-// 更新所有交易对的ATR
+// 更新所有交易对的ATR和波动率
 async function updateAllATR(callback) {
   let ATRObject = {}
+  let VolatilityObject = {}
   let res = await getAllExchangeInfo()
   let symbols = res.map((item)=>item.symbol)
   let count = 0
-  function writeFile (){
-    fs.writeFile('./data/ATR.json', JSON.stringify(ATRObject), (err) => {
+  let count2 = 0
+  function writeFile (url,obj,info){
+    fs.writeFile(url, JSON.stringify(obj), (err) => {
       if (err) {
         global.errorLogger(err)
         process.exit(1)
         return false
       }
       callback && callback(true)
-      console.log('更新ATR成功','更新后的atr',ATRObject)
+      console.log(info,ATRObject)
     })
   }
   async function getOne (symbol,ATRObject) {
     ATRObject[symbol] = await getOneATR(symbol)
     count++
     if (count === res.length){
-      writeFile()
+      writeFile('./data/ATR.json',ATRObject,'更新ATR成功','更新后的atr')
     };
+  }
+  // 获取单个品种的波动率
+  async function getOneVolatility (symbol, VolatilityObject){
+    VolatilityObject[symbol] = await getOneVol(symbol)
+    count2++
+    if (count2 === res.length){
+      writeFile('./data/volatility.json',count2)
+    }
   }
   for (let i in symbols) {
     let symbol = symbols[i]
     getOne(symbol,ATRObject)
+    getOneVolatility(symbol, VolatilityObject)
   }
 }
 
+// 根据波动率设置黑名单
+function setBlackList (VolatilityObject) {
+  let symbols = Object.keys(VolatilityObject)
+  let blockList = []
+  for (let i in symbols) {
+    let symbol = symbols[i]
+    let volatility = VolatilityObject[symbol]
+    if (volatility < 0.001){
+      blockList.push(symbol)
+      continue
+    }
+  }
+  fs.writeFile('./data/blackList.json', JSON.stringify(blockList), (err) => {
+    if (err) {
+      global.errorLogger(err)
+      process.exit(1)
+      return false
+    }
+    console.log('设置黑名单成功')
+  })
+
+
+}
 
 // 更新合约交易对
 async function updateAllExchangeInfo(){
