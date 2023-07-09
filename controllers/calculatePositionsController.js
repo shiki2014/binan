@@ -10,7 +10,6 @@ const fs = require('fs');
 // 符合条件后做止盈移动
 // 如果最近10跟k线低点大于开仓均价，则移动
 
-
 // 读取数据
 function readFile(callback){
   return new Promise(function (resolve, reject) {
@@ -24,7 +23,6 @@ function readFile(callback){
     })
   })
 }
-
 
 // 单品种K线初始化函数
 function klinesInit(symbol, data, quantityPrecision, pricePrecision) {
@@ -67,8 +65,8 @@ function getAmplitude(item){
 // 标的物权重排序
 function weightSorting(data){
   // x * 0.6 + y * 0.4
-  let TO = JSON.parse(getTO())
-  let data1 = data.map((item)=>{
+  let TO = JSON.parse(getTrendOscillation())
+  let sortList = data.map((item)=>{
     item.TO = TO[item.symbol]
     return item
   }).sort((a, b)=>{
@@ -81,9 +79,8 @@ function weightSorting(data){
   //   return b.klines[b.klines.length - 2].transactionsNumber - a.klines[a.klines.length - 2].transactionsNumber
   // })
   // 新规则根据过去震荡频率
-  return data1
+  return sortList
 }
-
 
 // 寻找k线的最高点和最低点
 function getHighAndLow(klines, symbol) {
@@ -110,7 +107,7 @@ function getHighAndLow(klines, symbol) {
 }
 
 // 获取震荡和趋势平均值
-function getTO () {
+function getTrendOscillation () {
   try {
     let data = fs.readFileSync('./data/trendOscillation.json')
     return data.toString()
@@ -317,7 +314,6 @@ function trendOscillationCompute (klines) {
   return goldenCrossCount + deathCrossCount
 }
 
-
 // 根据周期计算ATR
 function getATRCompute(data, cycle) {
   function SMA(source, length) {
@@ -399,7 +395,6 @@ function getPosition(atr, price, equity, direction, pricePrecision, leverageIng)
     }
   }
 }
-
 
 // 从数据文件中获取合约交易对
 async function getAllExchangeInfo () {

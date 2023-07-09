@@ -29,7 +29,7 @@
 ### 示例代码
 
 ```env
-NODE_ENV="development"
+NODE_ENV="production"
 API_KEY="your-api-key-here"
 API_SECRET="your-api-secret-here"
 ```
@@ -43,12 +43,15 @@ API_SECRET="your-api-secret-here"
 2. 打开终端或命令提示符，并导航到项目的根目录。
 
 3. 运行以下命令来安装所有依赖项：
-
-   ```shell
-   npm install
+```shell
+  npm install
+```
 
 ### 运行
 运行 `app.js` 文件即可启动程序，本系统会自动连接币安API并执行交易。你也可以将系统部署在服务器上，实现24小时不间断的交易。
+```shell
+  node app.js
+```
 
 ## 风险提示
 
