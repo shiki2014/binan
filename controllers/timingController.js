@@ -4,7 +4,7 @@ const { getExchangeInfo, contractOrder, setLeverage, getAccountData, getServiceT
 const { exec } = require('child_process');
 const iconv = require('iconv-lite')
 const fs = require('fs');
-const { getPreparingOrders, getAllExchangeInfo, getOneATR, getHighAndLow, klinesInit, getATR, getOneVol } = require('./calculatePositionsController');
+const { getPreparingOrders, getAllExchangeInfo, getOneATR, getHighAndLow, klinesInit, getATR, getOneVol, getAverageAmplitude, getOneIndex } = require('./calculatePositionsController');
 
 // 写入数据
 function writeFile(jsonString, callback){
@@ -51,12 +51,10 @@ async function updateTime() {
 
 // 更新所有交易对的ATR和波动率
 async function updateAllATR(callback) {
-  let ATRObject = {}
-  let VolatilityObject = {}
+  let indexObject = {}
   let res = await getAllExchangeInfo()
   let symbols = res.map((item)=>item.symbol)
   let count = 0
-  let count2 = 0
   function writeFile (url,obj,info){
     fs.writeFile(url, JSON.stringify(obj), (err) => {
       if (err) {
@@ -65,28 +63,32 @@ async function updateAllATR(callback) {
         return false
       }
       callback && callback(true)
-      console.log(info,ATRObject)
+      global.logger.info(info)
     })
   }
-  async function getOne (symbol,ATRObject) {
-    ATRObject[symbol] = await getOneATR(symbol)
+  // 获取单个品种的指标
+  async function getOne (symbol) {
+    indexObject[symbol] = await getOneIndex(symbol)
     count++
     if (count === res.length){
-      writeFile('./data/ATR.json',ATRObject,'更新ATR成功','更新后的atr')
+      let ATRObj = {} // ATR
+      let TOJ = {}  // 金死叉次数
+      let volObj = {} // 波动率
+      let AAObj = {} // 振幅
+      Object.keys(indexObject).forEach(itemKey => {
+        ATRObj[itemKey] = indexObject[itemKey].ATR
+        TOJ[itemKey] = indexObject[itemKey].trendOscillation
+        volObj[itemKey] = indexObject[itemKey].vol
+        AAObj[itemKey] = indexObject[itemKey].averageAmplitude
+      })
+      writeFile('./data/ATR.json',ATRObj,'更新ATR成功')
+      writeFile('./data/trendOscillation.json',TOJ,'更新金叉死叉数成功')
+      writeFile('./data/volatility.json',volObj,'更新波动率成功')
     };
-  }
-  // 获取单个品种的波动率
-  async function getOneVolatility (symbol, VolatilityObject){
-    VolatilityObject[symbol] = await getOneVol(symbol)
-    count2++
-    if (count2 === res.length){
-      writeFile('./data/volatility.json',count2)
-    }
   }
   for (let i in symbols) {
     let symbol = symbols[i]
-    getOne(symbol,ATRObject)
-    getOneVolatility(symbol, VolatilityObject)
+    getOne(symbol)
   }
 }
 
@@ -110,8 +112,6 @@ function setBlackList (VolatilityObject) {
     }
     console.log('设置黑名单成功')
   })
-
-
 }
 
 // 更新合约交易对
@@ -244,25 +244,24 @@ async function getPositionRisk () {
 
 // 获取当前仓位
 async function start () {
-  getPositionRisk()
-  let time = await updateTime()
-  if (!time) return global.errorLogger('时间同步失败', time)
-  getPositionRisk()
-  updateAllExchangeInfo()
+  // let time = await updateTime()
+  // if (!time) return global.errorLogger('时间同步失败', time)
+  // getPositionRisk()
+  // updateAllExchangeInfo()
   console.log('符合条件可以下单的仓位')
   let list = await getPreparingOrders(3000)
   console.log(list)
-  let orders = list.slice(0, 5)
-  for (let i in orders) {
-    console.log(`===========\n名字 ${orders[i].symbol}\n方向 ${orders[i].direction < 0 ? '做空' : '做多'}\n杠杆 ${orders[i].leverage}\n数量USDT ${orders[i].position}\n价格 ${orders[i].closePrice}\n止损 ${orders[i].stopPrice}`)
-  }
+  // let orders = list.slice(0, 5)
+  // for (let i in orders) {
+  //   console.log(`===========\n名字 ${orders[i].symbol}\n方向 ${orders[i].direction < 0 ? '做空' : '做多'}\n杠杆 ${orders[i].leverage}\n数量USDT ${orders[i].position}\n价格 ${orders[i].closePrice}\n止损 ${orders[i].stopPrice}`)
+  // }
 }
 
 // 获取当前ATR
 async function getCurrentATR (symbol) {
-  let res = await getKlines(symbol, 3)
+  let res = await getKlines(symbol, 20)
   let klines = klinesInit(symbol, res.data).klines
-  let ATR = await getATR(klines, 18, symbol)
+  let ATR = getATR(klines, 18, symbol)
   return ATR
 }
 

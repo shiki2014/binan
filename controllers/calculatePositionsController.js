@@ -63,14 +63,18 @@ function getAmplitude(item){
   let close = item.klines[item.klines.length - 2].close
   return Math.abs(open - close)/open
 }
-
+function getTO(){
+  fs.readFileSync()
+}
 // 标的物权重排序
 function weightSorting(data){
   // x * 0.6 + y * 0.4
+  let TO = JSON.parse(getTO())
   let data1 = data.map((item)=>{
+    item.TO = TO[item.symbol]
     return item
   }).sort((a, b)=>{
-    return getAmplitude(b) - getAmplitude(a)
+    return a.TO - b.TO
   })
   // 排序规则根据 transactionsNumber（成交笔数）大在前小在后
   // let data2 = data.map((item)=>{
@@ -78,6 +82,7 @@ function weightSorting(data){
   // }).sort((a, b)=>{
   //   return b.klines[b.klines.length - 2].transactionsNumber - a.klines[a.klines.length - 2].transactionsNumber
   // })
+  // 新规则根据过去震荡频率
   return data1
 }
 
@@ -103,6 +108,16 @@ function getHighAndLow(klines, symbol) {
   return {
     highestPoint,
     lowestPoint
+  }
+}
+
+// 获取震荡和趋势平均值
+function getTO () {
+  try {
+    let data = fs.readFileSync('./data/trendOscillation.json')
+    return data.toString()
+  } catch (err) {
+    global.errorLogger(err);
   }
 }
 
@@ -220,7 +235,7 @@ function getATR(data, cycle, symbol) {
   function round6 (x) {
     return Math.round(x * 1000000) / 1000000
   }
-  let historyATR = JSON.parse(getHistoryATR())
+  let historyATR = JSON.parse(getHistoryATR() || '{}')
   let kline = data[data.length - 1]
   let kline_1 = data[data.length - 2]
   let atr = historyATR[symbol]
@@ -250,6 +265,60 @@ function getVolCompute(priceData){
   const volatility = standardDeviation * scalingFactor;
   return volatility;
 }
+
+// 根据K线计算震荡或趋势
+function averageAmplitudeCompute (klineData) {
+  // 计算平均幅度
+  let sumAmplitude = 0;
+  for (let i = 0; i < klineData.length; i++) {
+    const amplitude = klineData[i].high - klineData[i].low;
+    sumAmplitude += amplitude;
+  }
+  const averageAmplitude = sumAmplitude / klineData.length;
+  // 判断趋势或震荡
+  // if (averageAmplitude < 2) {
+  //   console.log("这个品种更倾向于震荡市",averageAmplitude);
+  // } else {
+  //   console.log("这个品种更倾向于趋势市",averageAmplitude);
+  // }
+  return averageAmplitude
+}
+
+// 平均交差次数用于判断一个品种趋势多还是震荡多。
+function trendOscillationCompute (klines) {
+  function calculateEMACrossovers(data) {
+    const ema20 = calculateEMA(data, 5);
+    const ema50 = calculateEMA(data, 10);
+    let goldenCrossCount = 0;
+    let deathCrossCount = 0;
+    for (let i = 1; i < data.length; i++) {
+      if (ema20[i - 1] < ema50[i - 1] && ema20[i] > ema50[i]) {
+        goldenCrossCount++;
+      } else if (ema20[i - 1] > ema50[i - 1] && ema20[i] < ema50[i]) {
+        deathCrossCount++;
+      }
+    }
+    return { goldenCrossCount, deathCrossCount };
+  }
+  function calculateEMA(data, period) {
+    const emaArray = [];
+    const sma = calculateSMA(data.slice(0, period));
+    const multiplier = 2 / (period + 1);
+    emaArray[period - 1] = sma;
+    for (let i = period; i < data.length; i++) {
+      emaArray[i] = (data[i] - emaArray[i - 1]) * multiplier + emaArray[i - 1];
+    }
+    return emaArray;
+  }
+  function calculateSMA(data) {
+    const sum = data.reduce((acc, value) => acc + value, 0);
+    return sum / data.length;
+  }
+  const kLineData = klines.map(item => item.close)
+  const { goldenCrossCount, deathCrossCount } = calculateEMACrossovers(kLineData);
+  return goldenCrossCount + deathCrossCount
+}
+
 
 // 根据周期计算ATR
 function getATRCompute(data, cycle) {
@@ -340,20 +409,41 @@ async function getAllExchangeInfo () {
   return JSON.parse(data)
 }
 
+// 获取单个交易对计算指标
+async function getOneIndex(symbol) {
+  let res = await getKlines(symbol, 300)
+  if (res.data.length < 19) return 0
+  let klines = klinesInit(symbol, res.data).klines
+  let ATR = getATRCompute(klines,18) // ATR
+  let vol = getVolCompute(klines) // 波动率
+  let averageAmplitude = averageAmplitudeCompute(klines) // 振幅
+  let trendOscillation = trendOscillationCompute(klines) // 金死叉次数
+  return {ATR, averageAmplitude, vol, trendOscillation}
+}
+
 // 获取单个交易对的ATR
 async function getOneATR(symbol) {
-  let res = await getKlines(symbol, 200)
+  let res = await getKlines(symbol, 300)
   if (res.data.length < 19) return 0
-  let ATR = getATRCompute(klinesInit(symbol, res.data).klines,18)
+  let klines = klinesInit(symbol, res.data).klines
+  let ATR = getATRCompute(klines,18)
   return ATR
 }
 
 // 获取单个品种的波动率
-async function getOneVol() {
+async function getOneVol(symbol) {
   let res = await getKlines(symbol, 200)
   if (res.data.length < 19) return 0
   let klines = klinesInit(symbol, res.data).klines
   return getVolCompute(klines)
+}
+
+// 获取单个品种的震荡趋势性
+async function getAverageAmplitude(symbol) {
+  let res = await getKlines(symbol, 300)
+  if (res.data.length < 19) return 9999
+  let klines = klinesInit(symbol, res.data).klines
+  return trendOscillationCompute(klines)
 }
 
 module.exports = {
@@ -361,7 +451,9 @@ module.exports = {
   getAllExchangeInfo,
   getHighAndLow,
   klinesInit,
+  getOneIndex,
   getOneVol,
   getATR,
+  getAverageAmplitude,
   getOneATR
 }
