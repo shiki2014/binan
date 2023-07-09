@@ -4,5 +4,4 @@ node_modules
 package-lock.json
 logs
 .vercel
-data/ATR.json
-data/data.json
+data/

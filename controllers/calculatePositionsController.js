@@ -63,9 +63,7 @@ function getAmplitude(item){
   let close = item.klines[item.klines.length - 2].close
   return Math.abs(open - close)/open
 }
-function getTO(){
-  fs.readFileSync()
-}
+
 // 标的物权重排序
 function weightSorting(data){
   // x * 0.6 + y * 0.4
