@@ -12,7 +12,7 @@ async function getKlines (symbol,limit) {
       limit:limit || 21
     }
   }).catch(error => {
-		console.error('请求失败:', error)
+		global.errorLogger('请求失败:', error)
 	})
 	const klines = res.data;
   return klines
@@ -33,7 +33,7 @@ async function getUserData() {
       timestamp
     }
   }).catch(error => {
-		console.error('请求失败:', error)
+		global.errorLogger('请求失败:', error)
 	})
   console.log(res.data)
   return res.data

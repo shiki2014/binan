@@ -5,7 +5,7 @@ const apiDomain2 = 'https://api2.binance.com';
 const apiDomain3 = 'https://api3.binance.com';
 const apiDomain4 = 'https://api4.binance.com';
 const apiDomainContract = 'https://fapi.binance.com';
-const apiSocks = 'socks://127.0.0.1:10808'
+const apiSocks = process.env.API_SOCKS || 'socks://127.0.0.1:10808'
 const apiKey = process.env.API_KEY || ''
 const apiSecret = process.env.API_SECRET || ''
 console.log({apiKey,apiSecret});
