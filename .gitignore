@@ -3,3 +3,5 @@ node_modules
 .env
 package-lock.json
 logs
+.vercel
+data/

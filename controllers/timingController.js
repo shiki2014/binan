@@ -1,16 +1,16 @@
 // 定时控制器
 const schedule = require('node-schedule');
-const { getExchangeInfo, contractOrder, getAccountData, getServiceTime, getKlines, setStopPrice  } = require('../services/binanceContractService');
+const { getExchangeInfo, contractOrder, setLeverage, getAccountData, getServiceTime, getKlines, setStopPrice, getOrderAmendment  } = require('../services/binanceContractService');
 const { exec } = require('child_process');
 const iconv = require('iconv-lite')
 const fs = require('fs');
-const { getPreparingOrders, getAllExchangeInfo, getOneATR, getHighAndLow, klinesInit, getATR } = require('./calculatePositionsController');
+const { getPreparingOrders, getAllExchangeInfo, getOneATR, getHighAndLow, klinesInit, getATR, getOneVol, getAverageAmplitude, getOneIndex } = require('./calculatePositionsController');
 
 // 写入数据
 function writeFile(jsonString, callback){
   fs.writeFile('./data/data.json', jsonString, (err) => {
     if (err) {
-      console.error(err)
+      global.errorLogger(err)
       process.exit(1)
     }
     callback && callback(true)
@@ -36,7 +36,7 @@ async function updateTime() {
     return new Promise((resolve, reject) => {
       exec(command, {'shell':'powershell.exe', encoding: 'buffer'}, (error, stdout, stderr) => {
         if (error) {
-          console.error(`exec error: ${error}`)
+          global.errorLogger(`exec error: ${error}`)
           reject()
           return
         }
@@ -49,36 +49,70 @@ async function updateTime() {
   return execData
 }
 
-// 更新所有交易对的ATR
+// 更新所有交易对的ATR和波动率
 async function updateAllATR(callback) {
-  let ATRObject = {}
+  let indexObject = {}
   let res = await getAllExchangeInfo()
   let symbols = res.map((item)=>item.symbol)
   let count = 0
-  function writeFile (){
-    fs.writeFile('./data/ATR.json', JSON.stringify(ATRObject), (err) => {
+  function writeFile (url,obj,info){
+    fs.writeFile(url, JSON.stringify(obj), (err) => {
       if (err) {
-        console.error(err)
+        global.errorLogger(err)
         process.exit(1)
         return false
       }
       callback && callback(true)
-      console.log('更新ATR成功','更新后的atr',ATRObject)
+      global.logger.info(info)
     })
   }
-  async function getOne (symbol,ATRObject) {
-    ATRObject[symbol] = await getOneATR(symbol)
+  // 获取单个品种的指标
+  async function getOne (symbol) {
+    indexObject[symbol] = await getOneIndex(symbol)
     count++
     if (count === res.length){
-      writeFile()
+      let ATRObj = {} // ATR
+      let TOJ = {}  // 金死叉次数
+      let volObj = {} // 波动率
+      let AAObj = {} // 振幅
+      Object.keys(indexObject).forEach(itemKey => {
+        ATRObj[itemKey] = indexObject[itemKey].ATR
+        TOJ[itemKey] = indexObject[itemKey].trendOscillation
+        volObj[itemKey] = indexObject[itemKey].vol
+        AAObj[itemKey] = indexObject[itemKey].averageAmplitude
+      })
+      writeFile('./data/ATR.json',ATRObj,'更新ATR成功')
+      writeFile('./data/trendOscillation.json',TOJ,'更新金叉死叉数成功')
+      writeFile('./data/volatility.json',volObj,'更新波动率成功')
     };
   }
   for (let i in symbols) {
     let symbol = symbols[i]
-    getOne(symbol,ATRObject)
+    getOne(symbol)
   }
 }
 
+// 根据波动率设置黑名单
+function setBlackList (VolatilityObject) {
+  let symbols = Object.keys(VolatilityObject)
+  let blockList = []
+  for (let i in symbols) {
+    let symbol = symbols[i]
+    let volatility = VolatilityObject[symbol]
+    if (volatility < 0.001){
+      blockList.push(symbol)
+      continue
+    }
+  }
+  fs.writeFile('./data/blackList.json', JSON.stringify(blockList), (err) => {
+    if (err) {
+      global.errorLogger(err)
+      process.exit(1)
+      return false
+    }
+    console.log('设置黑名单成功')
+  })
+}
 
 // 更新合约交易对
 async function updateAllExchangeInfo(){
@@ -107,22 +141,22 @@ async function getAccountPosition() {
   let allPositions = res.positions
   return allPositions.filter((item)=>{
     return Math.abs(item.positionAmt) > 0
-  }) // 保证金总余额
+  })
 }
 
 // 下单！
 async function order (){
   let equity = await getMaxAvailableBalance()
   let position = await getAccountPosition()
-  let orderListOriginal = await getPreparingOrders(equity/2, position)
+  let orderListOriginal = await getPreparingOrders(equity/4, position)
   if (orderListOriginal.length == 0){
-    console.log('没有符合条件的标的')
+    global.logger.info('没有符合条件的标的')
     return
   }
-  let orderList = orderListOriginal.slice(0, 4) // 只进行符合条件的前三个
+  let orderList = orderListOriginal.slice(0, 8) // 符合条件的前10
   let count = 0
   let allCount = orderList.length
-  console.log('开始下单',orderListOriginal)
+  global.logger.info('开始下单',orderListOriginal.map(item => item.symbol))
   async function setOrder(item){
     await contractOrder({
       symbol: item.symbol,
@@ -133,8 +167,7 @@ async function order (){
     })
     count++
     if(count == allCount){
-      console.log('下单完毕');
-      console.log('当前仓位',await getAccountPosition())
+      global.logger.info('下单完毕')
     }
   }
   for (let i in orderList){
@@ -148,10 +181,10 @@ async function setTakeProfit () {
   let takeProfitList = []
   function signal (item){
     if (item.positionSide == 'SHORT'){
-      return item.highestPoint < item.entryPrice
+      return item.highestPoint < Number(item.entryPrice)
     }
     if (item.positionSide == 'LONG'){
-      return item.lowestPoint > item.entryPrice
+      return item.lowestPoint > Number(item.entryPrice)
     }
     return false
   }
@@ -168,32 +201,57 @@ async function setTakeProfit () {
       takeProfitList.push(data)
       let stopPrice = data.positionSide == 'SHORT' ? data.highestPoint : data.lowestPoint
       await setStopPrice(data.symbol, data.positionSide, stopPrice)
-      console.log(`${data.symbol}设置止盈成功`)
+      global.logger.info(`${data.symbol}设置止盈成功`)
     }
   }
   if (takeProfitList.length === 0){
-    console.log('没有需要设置止盈的标的物')
+    global.logger.info('没有需要设置止盈的标的物')
   }
 
   return takeProfitList
 }
 
-// 获取当前仓位
-async function start () {
-  let time = await updateTime()
-  if (!time) return global.errorLogger('时间同步失败', time)
+// 获取单个品种的风险
+async function getOneRisk(symbol, entryPrice, leverage, isolatedWallet){
+  let data = await getOrderAmendment(symbol)
+  let stopPrice = data[data.length - 1].stopPrice
+  let ads = Math.abs(Number(entryPrice) - Number(stopPrice))
+  let b = (ads/entryPrice) * Number(leverage)
+  return Number(isolatedWallet) * b
+}
+
+// 获取仓位盈亏以及风险
+async function getPositionRisk () {
   let position = await getAccountPosition()
   console.log('当前仓位', position);
   let unrealizedProfit = 0
+  let maxRisk = 0
+  let marginAlreadyUsed = 0
   for (let i in position) {
     unrealizedProfit += Number(position[i].unrealizedProfit)
+    maxRisk += await getOneRisk(position[i].symbol,position[i].entryPrice,position[i].leverage,position[i].isolatedWallet)
+    marginAlreadyUsed += Number(position[i].isolatedWallet)
   }
+  console.log('已经使用的保证金', marginAlreadyUsed)
+  console.log('可能出现的最大亏损', maxRisk)
   console.log('仓位盈亏', unrealizedProfit);
-  // console.log('符合条件可以下单的仓位')
-  // console.log(await getCurrentATR('TOMOUSDT'))
-  // let list = await getPreparingOrders(6700/2)
+  return {
+    maxRisk,
+    unrealizedProfit,
+    marginAlreadyUsed
+  }
+}
+
+// 获取当前仓位
+async function start () {
+  // let time = await updateTime()
+  // if (!time) return global.errorLogger('时间同步失败', time)
+  // getPositionRisk()
+  // updateAllExchangeInfo()
+  console.log('符合条件可以下单的仓位')
+  let list = await getPreparingOrders(3000)
+  console.log(list)
   // let orders = list.slice(0, 5)
-  // console.log(list)
   // for (let i in orders) {
   //   console.log(`===========\n名字 ${orders[i].symbol}\n方向 ${orders[i].direction < 0 ? '做空' : '做多'}\n杠杆 ${orders[i].leverage}\n数量USDT ${orders[i].position}\n价格 ${orders[i].closePrice}\n止损 ${orders[i].stopPrice}`)
   // }
@@ -201,10 +259,9 @@ async function start () {
 
 // 获取当前ATR
 async function getCurrentATR (symbol) {
-  let res = await getKlines(symbol, 3)
+  let res = await getKlines(symbol, 20)
   let klines = klinesInit(symbol, res.data).klines
-  console.log(klines, symbol)
-  let ATR = await getATR(klines, 18, symbol)
+  let ATR = getATR(klines, 18, symbol)
   return ATR
 }
 
@@ -226,19 +283,19 @@ async function getCurrentATR (symbol) {
 // }
 
 module.exports = async function () {
-  console.log('定时交易策略开始')
-  order()
+  global.logger.info('定时交易策略开始')
+  // start()
   schedule.scheduleJob('4 0 7,19 * * *',async function () {
     // 更新合约交易
-    console.log('更新合约对开始');
-    await updateTime()
+    global.logger.info('更新合约对开始');
+    // await updateTime()
     updateAllExchangeInfo()
   })
   schedule.scheduleJob('10 0 8,20 * * *', async function () {
     // 获取最新数据
-    console.log('获取下单交易数据下单')
+    global.logger.info('获取下单交易数据下单')
     await order()
-    console.log('开始仓位止盈设置')
-    console.log(await setTakeProfit())
+    global.logger.info('开始仓位止盈设置')
+    setTakeProfit()
   })
 };
