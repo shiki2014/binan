@@ -8,6 +8,7 @@ const apiDomainContract = 'https://fapi.binance.com';
 const apiSocks = 'socks://127.0.0.1:10808'
 const apiKey = process.env.API_KEY || ''
 const apiSecret = process.env.API_SECRET || ''
+console.log({apiKey,apiSecret});
 module.exports = {
 	apiDomain,
 	apiDomain1,
