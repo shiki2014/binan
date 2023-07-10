@@ -42,7 +42,7 @@ let obj2 = {
     'X-MBX-APIKEY': apiKey
   }
 }
-if (process.env.NODE_ENV == 'development'){
+if (process.env.API_SOCKS_OPEN == '1'){
   obj.httpsAgent = httpsAgent
   obj2.httpsAgent = httpsAgent
 }
