@@ -1,6 +1,6 @@
 // 定时控制器
 const schedule = require('node-schedule');
-const { getExchangeInfo, contractOrder, setLeverage, getAccountData, getServiceTime, getKlines, setStopPrice, getOrderAmendment  } = require('../services/binanceContractService');
+const { getExchangeInfo, contractOrder, setLeverage, getAccountData, getServiceTime, getKlines, setStopPrice, getOrderAmendment, getOpenOrders, deleteOrder } = require('../services/binanceContractService');
 const { exec } = require('child_process');
 const iconv = require('iconv-lite')
 const fs = require('fs');
@@ -207,14 +207,14 @@ async function setTakeProfit () {
   if (takeProfitList.length === 0){
     global.logger.info('没有需要设置止盈的标的物')
   }
-
   return takeProfitList
 }
 
 // 获取单个品种的风险
 async function getOneRisk(symbol, entryPrice, leverage, isolatedWallet){
   let data = await getOrderAmendment(symbol)
-  let stopPrice = data[data.length - 1].stopPrice
+  console.log(data,symbol)
+  let stopPrice = data[data.length - 1]?.stopPrice
   let ads = Math.abs(Number(entryPrice) - Number(stopPrice))
   let b = (ads/entryPrice) * Number(leverage)
   return Number(isolatedWallet) * b
@@ -232,9 +232,9 @@ async function getPositionRisk () {
     maxRisk += await getOneRisk(position[i].symbol,position[i].entryPrice,position[i].leverage,position[i].isolatedWallet)
     marginAlreadyUsed += Number(position[i].isolatedWallet)
   }
-  console.log('已经使用的保证金', marginAlreadyUsed)
-  console.log('可能出现的最大亏损', maxRisk)
-  console.log('仓位盈亏', unrealizedProfit);
+  // console.log('已经使用的保证金', marginAlreadyUsed)
+  // console.log('可能出现的最大亏损', maxRisk)
+  // console.log('仓位盈亏', unrealizedProfit);
   return {
     maxRisk,
     unrealizedProfit,
@@ -247,10 +247,13 @@ async function start () {
   // let time = await updateTime()
   // if (!time) return global.errorLogger('时间同步失败', time)
   // getPositionRisk()
+  // let data = await getOpenOrders()
+  // console.log(data)
+  deleteAllInvalidOrders()
   // updateAllExchangeInfo()
-  console.log('符合条件可以下单的仓位')
-  let list = await getPreparingOrders(3000)
-  console.log(list)
+  // console.log('符合条件可以下单的仓位')
+  // let list = await getPreparingOrders(3000)
+  // console.log(list)
   // let orders = list.slice(0, 5)
   // for (let i in orders) {
   //   console.log(`===========\n名字 ${orders[i].symbol}\n方向 ${orders[i].direction < 0 ? '做空' : '做多'}\n杠杆 ${orders[i].leverage}\n数量USDT ${orders[i].position}\n价格 ${orders[i].closePrice}\n止损 ${orders[i].stopPrice}`)
@@ -265,10 +268,56 @@ async function getCurrentATR (symbol) {
   return ATR
 }
 
+async function deleteAllInvalidOrders(){
+  let orders = await getOpenOrders()
+  orders = orders.map(function(item){
+    item.orderId = item.orderId.toString()
+    return item
+  })
+  let position = await getAccountPosition()
+  let symbols = position.map(item => item.symbol)
+  // 分类
+  let obj = {}
+  let invalidOrders = []
+  for (let i in symbols) {
+    let lData = orders.filter(item => item.symbol === symbols[i]).sort((a,b) =>{
+      return b.time - a.time
+    })
+    obj[symbols[i]] = lData
+    for(let i2 in lData){
+      if (i2 != 0){
+        invalidOrders.push(lData[i2])
+      }
+    }
+  }
+  if (invalidOrders.length > 0){
+    global.logger.info('开始删除无效订单')
+    for (let i in invalidOrders){
+      await deleteOrder(invalidOrders[i].symbol, invalidOrders[i].orderId)
+      global.logger.info('撤销挂单完成',invalidOrders[i].symbol,invalidOrders[i].orderId,invalidOrders[i].stopPrice)
+    }
+  } else {
+    global.logger.info('没有需要删除的订单')
+  }
+}
+
+
+// 初始化数据
+function initData () {
+  // 判断data文件夹存不存在
+  if (!fs.existsSync('./data')){
+    fs.mkdirSync('./data')
+  }
+  if (!fs.existsSync('./data/ATR.json')){
+    fs.writeFileSync('./data/ATR.json','')
+  }
+  updateAllExchangeInfo()
+}
 
 module.exports = async function () {
   global.logger.info('定时交易策略开始')
   // start()
+  initData()
   schedule.scheduleJob('4 0 7,19 * * *',async function () {
     // 更新合约交易
     global.logger.info('更新合约对开始');
@@ -280,6 +329,8 @@ module.exports = async function () {
     global.logger.info('获取下单交易数据下单')
     await order()
     global.logger.info('开始仓位止盈设置')
-    setTakeProfit()
+    await setTakeProfit()
+    global.logger.info('删除无效委托')
+    deleteAllInvalidOrders()
   })
 };

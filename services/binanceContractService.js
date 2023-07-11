@@ -157,7 +157,53 @@ async function setStopPrice(symbol, positionSide, stopPrice) {
   return res
 }
 
-// 查询订单修改历史
+// 获取全部挂单
+async function getOpenOrders(symbol) {
+  const res = await contractAxios({
+    method: 'get',
+    url: '/fapi/v1/openOrders',
+    params: {
+      timestamp: new Date().getTime()
+    }
+  }).catch(error => {
+    global.errorLogger('请求失败:', error?.response?.data)
+  })
+  return res && res.data
+}
+
+// 获取单个合约的挂单必须传symbol
+async function getOneOpenOrders(symbol) {
+  const res = await contractAxios({
+    method: 'get',
+    url: '/fapi/v1/openOrders',
+    params: {
+      symbol,
+      timestamp: new Date().getTime()
+    }
+  }).catch(error => {
+    global.errorLogger('请求失败:', error?.response?.data)
+  })
+  return res && res.data
+}
+
+// 删除挂单接口
+async function deleteOrder(symbol, orderId) {
+  const res = await contractAxios({
+    method: 'delete',
+    url: '/fapi/v1/order',
+    params: {
+      symbol,
+      orderId,
+      timestamp: new Date().getTime()
+    }
+  }).catch(error => {
+    console.log(error)
+    global.errorLogger('请求失败:', error?.response?.data)
+  })
+  return res && res.data
+}
+
+// 查询所有订单(包括历史订单)
 // 可以获取单个品种的止损价格
 async function getOrderAmendment(symbol) {
   const res = await contractAxios({
@@ -233,6 +279,8 @@ module.exports = {
   getPositionSideDual,
   getExchangeInfo,
   putListenKey,
+  deleteOrder,
   getOrderAmendment,
+  getOpenOrders,
   getListenKey
 };

@@ -29,9 +29,14 @@
 ### 示例代码
 
 ```env
-NODE_ENV="production"
 API_KEY="your-api-key-here"
 API_SECRET="your-api-secret-here"
+# 你的代理地址
+API_SOCKS='socks://127.0.0.1:7890'
+# 是否开启代理 1开启 0关闭
+API_SOCKS_OPEN='0'
+# 是否在本地环境，如果是本地调试则使用3000端口，其他使用80端口 development 为本地环境 其他为生产环境
+NODE_ENV='development'
 ```
 
 ### 安装

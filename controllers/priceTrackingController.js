@@ -25,7 +25,6 @@ async function getAccountPosition() {
 }
 
 
-
 // 生成一个webSocket跟踪流
 async function getWebSocket() {
   let data = await getListenKey();
@@ -33,7 +32,6 @@ async function getWebSocket() {
   WebSocket.client
   return new WebSocket(`wss://fstream.binance.com/ws/${listenKey}`, { agent });
 }
-
 
 
 // 仓位跟踪控制器
