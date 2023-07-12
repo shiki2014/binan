@@ -90,7 +90,10 @@ async function getPrice(symbol) {
 //  获取合约的止损价格
 async function getStopPrice(symbol) {
   let data = await getOneOpenOrders(symbol)
-  return Number(data[data.length - 1]?.stopPrice)
+  let lData = data.sort((a,b) =>{
+    return b.time - a.time
+  })
+  return Number(lData[0]?.stopPrice)
 }
 
 
