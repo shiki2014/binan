@@ -110,7 +110,7 @@ function setBlackList (VolatilityObject) {
       process.exit(1)
       return false
     }
-    console.log('设置黑名单成功')
+    global.logger.info('设置黑名单成功')
   })
 }
 
@@ -120,7 +120,7 @@ async function updateAllExchangeInfo(){
   let symbols = res.data.symbols
   let data = symbols.filter(item => item.symbol.includes("USDT"))
   writeFile(JSON.stringify(data), ()=>{
-    console.log('更新交易对成功')
+    global.logger.info('更新交易对成功')
     updateAllATR()
   })
   return true
