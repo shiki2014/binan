@@ -1,5 +1,5 @@
 // 价格跟踪控制器
-const { getExchangeInfo, contractOrder, getAccountData, getServiceTime, getKlines, setStopPrice, getListenKey, getOrderAmendment  } = require('../services/binanceContractService');
+const { getAccountData, getKlines, setStopPrice, getListenKey, getOneOpenOrders  } = require('../services/binanceContractService');
 const { klinesInit } = require('./calculatePositionsController');
 const WebSocket = require('ws');
 const { apiSocks } = require('../config/config')
@@ -89,8 +89,8 @@ async function getPrice(symbol) {
 
 //  获取合约的止损价格
 async function getStopPrice(symbol) {
-  let data = await getOrderAmendment(symbol)
-  return data[data.length - 1].stopPrice
+  let data = await getOneOpenOrders(symbol)
+  return Number(data[data.length - 1]?.stopPrice)
 }
 
 

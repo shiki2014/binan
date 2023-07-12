@@ -1,6 +1,6 @@
 // 合约交易
 const { contractAxios } = require('../axiosInstance/axiosInstance')
-
+require('dotenv').config();
 // 获取服务器时间
 async function getServiceTime() {
   const res = await contractAxios({
@@ -114,7 +114,7 @@ async function contractOrder({ symbol, positionSide, quantity, stopPrice, levera
   global.logger.info('杠杆设置成功', symbol)
   const res = await contractAxios({
     method: 'post',
-    url: '/fapi/v1/order',
+    url: process.env.NODE_ENV === 'development' ? '/fapi/v1/order/test' :'/fapi/v1/order',
     data: {
       symbol,
       side: positionSide == 'LONG' ? 'BUY' : 'SELL', // BUY or SELL
@@ -172,6 +172,7 @@ async function getOpenOrders(symbol) {
 }
 
 // 获取单个合约的挂单必须传symbol
+// 可以获取单个品种的止损价格
 async function getOneOpenOrders(symbol) {
   const res = await contractAxios({
     method: 'get',
@@ -204,7 +205,6 @@ async function deleteOrder(symbol, orderId) {
 }
 
 // 查询所有订单(包括历史订单)
-// 可以获取单个品种的止损价格
 async function getOrderAmendment(symbol) {
   const res = await contractAxios({
     method: 'get',
@@ -281,6 +281,7 @@ module.exports = {
   putListenKey,
   deleteOrder,
   getOrderAmendment,
+  getOneOpenOrders,
   getOpenOrders,
   getListenKey
 };

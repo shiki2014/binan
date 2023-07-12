@@ -1,10 +1,10 @@
 // 定时控制器
 const schedule = require('node-schedule');
-const { getExchangeInfo, contractOrder, setLeverage, getAccountData, getServiceTime, getKlines, setStopPrice, getOrderAmendment, getOpenOrders, deleteOrder } = require('../services/binanceContractService');
+const { getExchangeInfo, contractOrder, getAccountData, getServiceTime, getKlines, setStopPrice, getOneOpenOrders, getOpenOrders, deleteOrder } = require('../services/binanceContractService');
 const { exec } = require('child_process');
 const iconv = require('iconv-lite')
 const fs = require('fs');
-const { getPreparingOrders, getAllExchangeInfo, getOneATR, getHighAndLow, klinesInit, getATR, getOneVol, getAverageAmplitude, getOneIndex } = require('./calculatePositionsController');
+const { getPreparingOrders, getAllExchangeInfo, getHighAndLow, klinesInit, getATR, getOneIndex } = require('./calculatePositionsController');
 
 // 写入数据
 function writeFile(jsonString, callback){
@@ -212,8 +212,7 @@ async function setTakeProfit () {
 
 // 获取单个品种的风险
 async function getOneRisk(symbol, entryPrice, leverage, isolatedWallet){
-  let data = await getOrderAmendment(symbol)
-  console.log(data,symbol)
+  let data = await getOneOpenOrders(symbol)
   let stopPrice = data[data.length - 1]?.stopPrice
   let ads = Math.abs(Number(entryPrice) - Number(stopPrice))
   let b = (ads/entryPrice) * Number(leverage)
@@ -232,9 +231,9 @@ async function getPositionRisk () {
     maxRisk += await getOneRisk(position[i].symbol,position[i].entryPrice,position[i].leverage,position[i].isolatedWallet)
     marginAlreadyUsed += Number(position[i].isolatedWallet)
   }
-  // console.log('已经使用的保证金', marginAlreadyUsed)
-  // console.log('可能出现的最大亏损', maxRisk)
-  // console.log('仓位盈亏', unrealizedProfit);
+  console.log('已经使用的保证金', marginAlreadyUsed)
+  console.log('可能出现的最大亏损', maxRisk)
+  console.log('仓位盈亏', unrealizedProfit)
   return {
     maxRisk,
     unrealizedProfit,
@@ -246,7 +245,7 @@ async function getPositionRisk () {
 async function start () {
   // let time = await updateTime()
   // if (!time) return global.errorLogger('时间同步失败', time)
-  // getPositionRisk()
+  getPositionRisk()
   // let data = await getOpenOrders()
   // console.log(data)
   deleteAllInvalidOrders()
@@ -258,14 +257,6 @@ async function start () {
   // for (let i in orders) {
   //   console.log(`===========\n名字 ${orders[i].symbol}\n方向 ${orders[i].direction < 0 ? '做空' : '做多'}\n杠杆 ${orders[i].leverage}\n数量USDT ${orders[i].position}\n价格 ${orders[i].closePrice}\n止损 ${orders[i].stopPrice}`)
   // }
-}
-
-// 获取当前ATR
-async function getCurrentATR (symbol) {
-  let res = await getKlines(symbol, 20)
-  let klines = klinesInit(symbol, res.data).klines
-  let ATR = getATR(klines, 18, symbol)
-  return ATR
 }
 
 // 删除已经无用的委托
@@ -323,8 +314,8 @@ function initData () {
 
 module.exports = async function () {
   global.logger.info('定时交易策略开始')
-  // start()
-  initData()
+  start()
+  // initData()
   schedule.scheduleJob('4 0 7,19 * * *',async function () {
     // 更新合约交易
     global.logger.info('更新合约对开始');
