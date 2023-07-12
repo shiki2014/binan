@@ -311,6 +311,12 @@ function initData () {
   if (!fs.existsSync('./data/ATR.json')){
     fs.writeFileSync('./data/ATR.json','')
   }
+  if (!fs.existsSync('./data/blackList.json')){
+    fs.writeFileSync('./data/blackList.json','["USDCUSDT"]')
+  }
+  if (!fs.existsSync('./data/whiteList.json')){
+    fs.writeFileSync('./data/whiteList.json','["BTCUSDT"]')
+  }
   updateAllExchangeInfo()
 }
 

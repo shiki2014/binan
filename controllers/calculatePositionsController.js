@@ -146,8 +146,8 @@ function getAllKlines() {
       reject()
     }
     let count = 0
-    let blackList = JSON.parse(getBlackList())
-    let whiteList = JSON.parse(getWhiteList())
+    let blackList = JSON.parse(getBlackList() || '[]')
+    let whiteList = JSON.parse(getWhiteList() || '[]')
     let symbols = allExchangeInfo.filter((item) =>{
       return !blackList.includes(item.symbol) || whiteList.includes(item.symbol)
     })
