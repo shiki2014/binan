@@ -268,6 +268,7 @@ async function getCurrentATR (symbol) {
   return ATR
 }
 
+// 删除已经无用的委托
 async function deleteAllInvalidOrders(){
   let orders = await getOpenOrders()
   orders = orders.map(function(item){

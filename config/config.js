@@ -9,13 +9,13 @@ const apiSocks = process.env.API_SOCKS || 'socks://127.0.0.1:10808'
 const apiKey = process.env.API_KEY || ''
 const apiSecret = process.env.API_SECRET || ''
 module.exports = {
-	apiDomain,
-	apiDomain1,
+  apiDomain,
+  apiDomain1,
   apiDomain2,
   apiDomain3,
   apiDomain4,
   apiDomainContract,
-	apiSocks,
+  apiSocks,
   apiKey,
   apiSecret
 };
