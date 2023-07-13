@@ -332,7 +332,6 @@ module.exports = async function () {
     // 获取最新数据
     global.logger.info('获取下单交易数据下单')
     await order()
-    global.logger.info('开始仓位止盈设置')
     // 防止币安未能及时处理延迟三秒
     setTimeout(async function() {
       global.logger.info('开始仓位止盈设置')
