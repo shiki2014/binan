@@ -157,7 +157,7 @@ async function order (){
   let count = 0
   let allCount = orderList.length
   global.logger.info('开始下单',orderListOriginal.map(item => item.symbol))
-  async function setOrder(item){
+  async function setOrder(item, callback){
     await contractOrder({
       symbol: item.symbol,
       positionSide: item.direction > 0 ? 'LONG' : 'SHORT',
@@ -167,12 +167,18 @@ async function order (){
     })
     count++
     if(count == allCount){
-      global.logger.info('下单完毕')
+      callback()
     }
   }
-  for (let i in orderList){
-    setOrder(orderList[i])
+  function forOrder() {
+    return new Promise(async function (resolve) {
+      for (let i in orderList){
+        setOrder(orderList[i],resolve)
+      }
+    });
   }
+  await forOrder()
+  global.logger.info('下单完毕')
 }
 
 // 对所有开仓并符合条件的标的物设置止盈
@@ -327,8 +333,12 @@ module.exports = async function () {
     global.logger.info('获取下单交易数据下单')
     await order()
     global.logger.info('开始仓位止盈设置')
-    await setTakeProfit()
-    global.logger.info('删除无效委托')
-    deleteAllInvalidOrders()
+    // 防止币安未能及时处理延迟三秒
+    setTimeout(async function() {
+      global.logger.info('开始仓位止盈设置')
+      await setTakeProfit()
+      global.logger.info('删除无效委托')
+      await deleteAllInvalidOrders()
+    }, 3000);
   })
 };
