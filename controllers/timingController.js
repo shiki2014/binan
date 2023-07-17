@@ -6,15 +6,32 @@ const iconv = require('iconv-lite')
 const fs = require('fs');
 const { getPreparingOrders, getAllExchangeInfo, getHighAndLow, klinesInit, getATR, getOneIndex } = require('./calculatePositionsController');
 
+// 读取数据
+function readFile(url){
+  return new Promise(function (resolve, reject) {
+    fs.readFile(url, function (err, data) {
+      if (err) {
+        reject(err);
+        global.errorLogger(err)
+        process.exit(1)
+      }
+      resolve(data.toString())
+    })
+  })
+}
+
 // 写入数据
-function writeFile(jsonString, callback){
-  fs.writeFile('./data/data.json', jsonString, (err) => {
-    if (err) {
-      global.errorLogger(err)
-      process.exit(1)
-    }
-    callback && callback(true)
-  });
+function writeFile(url,jsonString){
+  return new Promise(function (resolve, reject) {
+    fs.writeFile(url, jsonString, (err) => {
+      if (err) {
+        reject(err);
+        global.errorLogger(err)
+        process.exit(1)
+      }
+      resolve(true)
+    });
+  })
 }
 
 // 获取币安服务器时间更新服务器时间
@@ -114,15 +131,47 @@ function setBlackList (VolatilityObject) {
   })
 }
 
+function formatDateTime(date) {
+  // 在个位数前添加0
+  function addLeadingZero(number) {
+    return number < 10 ? "0" + number : number;
+  }
+  // 获取年份
+  var year = date.getFullYear();
+  // 获取月份，月份从0开始，需要加1
+  var month = date.getMonth() + 1;
+  // 获取日期
+  var day = date.getDate();
+  // 获取小时
+  var hours = date.getHours();
+  // 获取分钟
+  var minutes = date.getMinutes();
+  // 组合成"yyyy-mm-dd HH:mm"格式
+  var formattedDate = year + "-" + addLeadingZero(month) + "-" + addLeadingZero(day) + " " + addLeadingZero(hours) + ":" + addLeadingZero(minutes);
+  return formattedDate;
+}
+
+// 记录账号历史最大权益
+async function setUpdateEquity(){
+  let res = await getAccountData()
+  let equity = Number(res.totalMarginBalance)
+  let data = JSON.parse(await readFile('./data/equity.json'))
+  if (equity > Number(data.equity)){
+    data.equity = equity
+  }
+  await writeFile('./data/equity.json', JSON.stringify(data))
+  return true
+}
+
 // 更新合约交易对
 async function updateAllExchangeInfo(){
   let res = await getExchangeInfo()
   let symbols = res.data.symbols
   let data = symbols.filter(item => item.symbol.includes("USDT"))
-  writeFile(JSON.stringify(data), ()=>{
-    global.logger.info('更新交易对成功')
-    updateAllATR()
-  })
+  await writeFile('./data/data.json', JSON.stringify(data))
+  global.logger.info('更新交易对成功')
+  setUpdateEquity()
+  updateAllATR()
   return true
 }
 
@@ -144,19 +193,34 @@ async function getAccountPosition() {
   })
 }
 
+// 赢冲输缩最多下单头寸
+async function getEquityAmount () {
+  let res = await getAccountData()
+  let availableBalance = Number(res.availableBalance) // 账户余额
+  let totalMarginBalance = Number(res.totalMarginBalance)/2 // 对半账户权益
+  let equity = totalMarginBalance > availableBalance ? availableBalance : totalMarginBalance
+  let equityMaxHistory = JSON.parse(await readFile('./data/equity.json'))
+  let withdrawalAmplitude = 1 // 回撤幅度
+  if (equityMaxHistory.equity > res.totalMarginBalance){
+    withdrawalAmplitude = (equityMaxHistory.equity - res.totalMarginBalance)/equityMaxHistory.equity
+  }
+  global.logger.info('回撤幅度',withdrawalAmplitude.toFixed(3))
+  return (equity/3) * (1 - withdrawalAmplitude.toFixed(3))
+}
+
 // 下单！
 async function order (){
-  let equity = await getMaxAvailableBalance()
   let position = await getAccountPosition()
-  let orderListOriginal = await getPreparingOrders(equity/4, position)
+  let orderListOriginal = await getPreparingOrders(await getEquityAmount() , position)
   if (orderListOriginal.length == 0){
     global.logger.info('没有符合条件的标的')
     return
   }
-  let orderList = orderListOriginal.slice(0, 8) // 符合条件的前10
+  let orderList = orderListOriginal.slice(0, 6) // 符合条件的前6
   let count = 0
   let allCount = orderList.length
-  global.logger.info('开始下单',orderListOriginal.map(item => item.symbol))
+  global.logger.info('有信号的标的',orderListOriginal.map(item => item.symbol))
+  global.logger.info('开始下单',orderList.map(item => item.symbol).join(', '));
   async function setOrder(item, callback){
     await contractOrder({
       symbol: item.symbol,
@@ -301,7 +365,7 @@ async function deleteAllInvalidOrders(){
 
 
 // 初始化数据
-function initData () {
+async function initData () {
   // 判断data文件夹存不存在
   if (!fs.existsSync('./data')){
     fs.mkdirSync('./data')
@@ -314,6 +378,11 @@ function initData () {
   }
   if (!fs.existsSync('./data/whiteList.json')){
     fs.writeFileSync('./data/whiteList.json','["BTCUSDT"]')
+  }
+  if (!fs.existsSync('./data/equity.json')){
+    let res = await getAccountData()
+    let equity = Number(res.totalMarginBalance)
+    fs.writeFileSync('./data/equity.json',`{"equity": ${equity}}`)
   }
   updateAllExchangeInfo()
 }
@@ -329,7 +398,6 @@ module.exports = async function () {
     updateAllExchangeInfo()
   })
   schedule.scheduleJob('10 0 8,20 * * *', async function () {
-    // 获取最新数据
     global.logger.info('获取下单交易数据下单')
     await order()
     // 防止币安未能及时处理延迟三秒

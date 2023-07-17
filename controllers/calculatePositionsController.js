@@ -65,6 +65,7 @@ function getAmplitude(item){
 // 标的物权重排序
 function weightSorting(data){
   // x * 0.6 + y * 0.4
+  // 根据品种的趋势特征进行排序
   let TO = JSON.parse(getTrendOscillation())
   let sortList = data.map((item)=>{
     item.TO = TO[item.symbol]
@@ -72,6 +73,12 @@ function weightSorting(data){
   }).sort((a, b)=>{
     return a.TO - b.TO
   })
+  // 根据品种的波幅进行排序
+  // let sortList = data.map((item)=>{
+  //   return item
+  // }).sort((a, b)=>{
+  //   return getAmplitude(b) -getAmplitude(a)
+  // })
   // 排序规则根据 transactionsNumber（成交笔数）大在前小在后
   // let data2 = data.map((item)=>{
   //   return item
@@ -366,14 +373,14 @@ function getPosition(atr, price, equity, direction, pricePrecision, leverageIng)
   // direction方向
   // ATR均衡策略规则
   // 每次下单为账号权益的10%
-  // 止损为1.8的ATR
+  // 止损为2的ATR
   // 止损小于总体账户权益的2% （亏损下单额的20%平仓）
-  // 如果1.8的ATR大于了整体账户权益的2% 则降低账户权益由10%下降到直到条件满足
+  // 如果2的ATR大于了整体账户权益的2% 则降低账户权益由10%下降到直到条件满足
   // 在规则内选择最大的杠杆
   let quotaRatio = 0.1 // 额度比例
   let stopMargin = 0.02 // 止损小于总体账户权益的2%
   let leverage = 1 // 杠杆
-  let ATR18 = 1.8 * atr // 使用ATR周期为18计算ATR
+  let ATR18 = 2 * atr // 使用ATR周期为18计算ATR
   let stopPrice = (direction > 0 ? (price - ATR18) :(price + ATR18)).toFixed(pricePrecision) // 止损价格
   let decline = ATR18 / price // 跌幅
   // 计算部分
