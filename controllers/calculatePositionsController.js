@@ -66,19 +66,19 @@ function getAmplitude(item){
 function weightSorting(data){
   // x * 0.6 + y * 0.4
   // 根据品种的趋势特征进行排序
-  let TO = JSON.parse(getTrendOscillation())
-  let sortList = data.map((item)=>{
-    item.TO = TO[item.symbol]
-    return item
-  }).sort((a, b)=>{
-    return a.TO - b.TO
-  })
-  // 根据品种的波幅进行排序
+  // let TO = JSON.parse(getTrendOscillation())
   // let sortList = data.map((item)=>{
+  //   item.TO = TO[item.symbol]
   //   return item
   // }).sort((a, b)=>{
-  //   return getAmplitude(b) -getAmplitude(a)
+  //   return a.TO - b.TO
   // })
+  // 根据品种的波幅进行排序
+  let sortList = data.map((item)=>{
+    return item
+  }).sort((a, b)=>{
+    return getAmplitude(b) -getAmplitude(a)
+  })
   // 排序规则根据 transactionsNumber（成交笔数）大在前小在后
   // let data2 = data.map((item)=>{
   //   return item
@@ -187,8 +187,11 @@ async function getPreparingOrders(equity, positionIng){
   function signal(symbolData) {
     // k线收盘时，最高点突破，并且是阳线
     // k线收盘时，最低点突破，并且是阴线
-    let LONG = symbolData.highPrice > symbolData.highestPoint && symbolData.closePrice >= symbolData.openPrice
-    let SHORT = symbolData.lowPrice < symbolData.lowestPoint && symbolData.closePrice <= symbolData.openPrice
+    let solidHeight = Math.abs(symbolData.closePrice - symbolData.openPrice)
+    let upHatchedHeight = Math.abs(symbolData.closePrice - symbolData.highPrice) // 阳线的上影线
+    let downHatchedHeight = Math.abs(symbolData.closePrice - symbolData.lowPrice) // 阴线的下阴线
+    let LONG = symbolData.highPrice > symbolData.highestPoint && symbolData.closePrice >= symbolData.openPrice && ( solidHeight > upHatchedHeight || symbolData.closePrice > symbolData.highestPoint )
+    let SHORT = symbolData.lowPrice < symbolData.lowestPoint && symbolData.closePrice <= symbolData.openPrice && ( solidHeight > downHatchedHeight || symbolData.closePrice < symbolData.lowestPoint )
     return LONG || SHORT
   }
   let primitiveData = weightSorting(await getAllKlines())
