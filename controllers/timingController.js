@@ -205,7 +205,7 @@ async function getEquityAmount () {
     withdrawalAmplitude = (equityMaxHistory.equity - res.totalMarginBalance)/equityMaxHistory.equity
   }
   global.logger.info('回撤幅度', withdrawalAmplitude.toFixed(3))
-  return ((equity/3) * Math.pow(1 - withdrawalAmplitude.toFixed(3)), 2)
+  return (equity/3) * Math.pow((1 - withdrawalAmplitude.toFixed(3)), 2)
 }
 
 // 下单！
