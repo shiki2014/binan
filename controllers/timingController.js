@@ -204,8 +204,8 @@ async function getEquityAmount () {
   if (equityMaxHistory.equity > res.totalMarginBalance){
     withdrawalAmplitude = (equityMaxHistory.equity - res.totalMarginBalance)/equityMaxHistory.equity
   }
-  global.logger.info('回撤幅度',withdrawalAmplitude.toFixed(3))
-  return (equity/3) * (1 - withdrawalAmplitude.toFixed(3))
+  global.logger.info('回撤幅度', withdrawalAmplitude.toFixed(3))
+  return ((equity/3) * Math.pow(1 - withdrawalAmplitude.toFixed(3)), 2)
 }
 
 // 下单！
@@ -216,7 +216,7 @@ async function order (){
     global.logger.info('没有符合条件的标的')
     return
   }
-  let orderList = orderListOriginal.slice(0, 6) // 符合条件的前6
+  let orderList = orderListOriginal.slice(0, 5) // 符合条件的前6
   let count = 0
   let allCount = orderList.length
   global.logger.info('有信号的标的',orderListOriginal.map(item => item.symbol))
