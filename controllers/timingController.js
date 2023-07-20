@@ -337,12 +337,12 @@ async function deleteAllInvalidOrders(){
     return item
   })
   let position = await getAccountPosition()
-  let symbols = position.map(item => item.symbol)
+  let symbols = position.map(item => item.symbol+item.positionSide)
   // 分类
   let obj = {}
   let invalidOrders = []
   for (let i in symbols) {
-    let lData = orders.filter(item => item.symbol === symbols[i]).sort((a,b) =>{
+    let lData = orders.filter(item => (item.symbol+item.positionSide) === symbols[i]).sort((a,b) =>{
       return b.time - a.time
     })
     obj[symbols[i]] = lData
@@ -390,7 +390,8 @@ async function initData () {
 module.exports = async function () {
   global.logger.info('定时交易策略开始')
   // start()
-  initData()
+  // initData()
+  deleteAllInvalidOrders()
   schedule.scheduleJob('4 0 7,19 * * *',async function () {
     // 更新合约交易
     global.logger.info('更新合约对开始');
