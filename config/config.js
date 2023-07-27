@@ -8,7 +8,7 @@ const apiDomainContract = 'https://fapi.binance.com';
 const apiSocks = process.env.API_SOCKS || 'socks://127.0.0.1:10808'
 const apiKey = process.env.API_KEY || ''
 const apiSecret = process.env.API_SECRET || ''
-const cycle = '12h'
+const cycle = '1d'
 function getTimezoneOffset () {
   let date = new Date()
   return date.getTimezoneOffset()

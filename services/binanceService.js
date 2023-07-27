@@ -8,7 +8,7 @@ async function getKlines (symbol,limit) {
     method: 'get',
     params: {
       symbol,
-      interval:'12h',
+      interval:'1d',
       limit:limit || 21
     }
   }).catch(error => {

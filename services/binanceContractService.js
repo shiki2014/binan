@@ -31,7 +31,7 @@ async function getKlines(symbol, limit) {
     params: {
       symbol,
       limit: limit || 22,
-      interval: '12h'
+      interval: '1d'
     }
   }).catch(error => {
     global.errorLogger('请求失败:', error)

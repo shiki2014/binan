@@ -391,13 +391,13 @@ module.exports = async function () {
   global.logger.info('定时交易策略开始')
   // start()
   initData()
-  schedule.scheduleJob('4 0 7,19 * * *',async function () {
+  schedule.scheduleJob('4 0 7 * * *',async function () {
     // 更新合约交易
     global.logger.info('更新合约对开始');
     // await updateTime()
     updateAllExchangeInfo()
   })
-  schedule.scheduleJob('10 0 8,20 * * *', async function () {
+  schedule.scheduleJob('10 0 8 * * *', async function () {
     global.logger.info('获取下单交易数据下单')
     await order()
     // 防止币安未能及时处理延迟三秒
