@@ -223,7 +223,7 @@ async function getOrderAmendment(symbol) {
 async function getAccountData() {
   const res = await contractAxios({
     method: 'get',
-    url: '/fapi/v1/account',
+    url: '/fapi/v2/account',
     params: {
       timestamp: new Date().getTime()
     }
