@@ -377,7 +377,7 @@ function getPosition(atr, price, equity, direction, pricePrecision, leverageIng)
   // ATR均衡策略规则
   // 每次下单为账号权益的10%
   // 止损为2的ATR
-  // 止损小于总体账户权益的2% （亏损下单额的20%平仓）
+  // 止损小于权益的2% （亏损下单额的20%平仓）
   // 如果2的ATR大于了整体账户权益的2% 则降低账户权益由10%下降到直到条件满足
   // 在规则内选择最大的杠杆
   let quotaRatio = 0.1 // 额度比例
