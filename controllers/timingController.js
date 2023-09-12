@@ -219,7 +219,7 @@ async function order (){
     global.logger.info('没有符合条件的标的')
     return
   }
-  let orderList = orderListOriginal.slice(0, 5) // 符合条件的前6
+  let orderList = orderListOriginal.slice(0, 5) // 符合条件的前5
   let count = 0
   let allCount = orderList.length
   global.logger.info('有信号的标的',orderListOriginal.map(item => item.symbol))
@@ -394,6 +394,7 @@ module.exports = async function () {
   global.logger.info('定时交易策略开始')
   // start()
   initData()
+  order()
   schedule.scheduleJob('4 0 7 * * *',async function () {
     // 更新合约交易
     global.logger.info('更新合约对开始');
