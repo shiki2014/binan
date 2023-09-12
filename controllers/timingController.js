@@ -394,7 +394,6 @@ module.exports = async function () {
   global.logger.info('定时交易策略开始')
   // start()
   initData()
-  order()
   schedule.scheduleJob('4 0 7 * * *',async function () {
     // 更新合约交易
     global.logger.info('更新合约对开始');
