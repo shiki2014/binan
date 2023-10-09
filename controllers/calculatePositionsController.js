@@ -38,7 +38,7 @@ function klinesInit(symbol, data, quantityPrecision, pricePrecision) {
   })
   // 获取ATR高点低点
   let HAL = getHighAndLow(klines.slice(0, klines.length - 2),symbol) // 高点低点
-  let ATR = getATR(klines.slice(0, klines.length - 1), 18, symbol)
+  let ATR = getATR(klines.slice(0, klines.length - 1), 14, symbol)
   return {
     ...HAL,
     ATR,
@@ -383,9 +383,9 @@ function getPosition(atr, price, equity, direction, pricePrecision, leverageIng)
   let quotaRatio = 0.1 // 额度比例
   let stopMargin = 0.02 // 止损小于总体账户权益的2%
   let leverage = 1 // 杠杆
-  let ATR18 = 2 * atr // 使用ATR周期为18计算ATR
-  let stopPrice = (direction > 0 ? (price - ATR18) :(price + ATR18)).toFixed(pricePrecision) // 止损价格
-  let decline = ATR18 / price // 跌幅
+  let ATR14 = 2 * atr // 使用ATR周期为14计算ATR
+  let stopPrice = (direction > 0 ? (price - ATR14) :(price + ATR14)).toFixed(pricePrecision) // 止损价格
+  let decline = ATR14 / price // 跌幅
   // 计算部分
   if ( decline > 0.2 ) {
     // 如果跌幅大于20%
@@ -417,7 +417,7 @@ async function getOneIndex(symbol) {
   let res = await getKlines(symbol, 300)
   if (res.data.length < 19) return 0
   let klines = klinesInit(symbol, res.data).klines
-  let ATR = getATRCompute(klines,18) // ATR
+  let ATR = getATRCompute(klines,14) // ATR
   let vol = getVolCompute(klines) // 波动率
   let averageAmplitude = averageAmplitudeCompute(klines) // 振幅
   let trendOscillation = trendOscillationCompute(klines) // 金死叉次数
@@ -429,7 +429,7 @@ async function getOneATR(symbol) {
   let res = await getKlines(symbol, 300)
   if (res.data.length < 19) return 0
   let klines = klinesInit(symbol, res.data).klines
-  let ATR = getATRCompute(klines,18)
+  let ATR = getATRCompute(klines,14)
   return ATR
 }
 
