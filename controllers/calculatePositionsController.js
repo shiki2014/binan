@@ -1,6 +1,9 @@
 // 计算仓位控制器
 const {  getKlines  } = require('../services/binanceContractService');
 const fs = require('fs');
+const breakthroughCoefficient = 20 // 突破系数
+const bc = 20 // 突破系数
+const breakthroughCoefficient20 = 20 // 多少根k线内算第一次突破
 // 整体逻辑
 
 // 在每天的19点和早上的7点进行时间校准合约交易对的数据更新
@@ -26,7 +29,7 @@ function readFile(callback){
 
 // 单品种K线初始化函数
 function klinesInit(symbol, data, quantityPrecision, pricePrecision) {
-  let klines = data.map((item) => {
+  let klinesAdd20 = data.map((item) => {
     return {
       open: parseFloat(item[1]),
       high: parseFloat(item[2]),
@@ -36,6 +39,7 @@ function klinesInit(symbol, data, quantityPrecision, pricePrecision) {
       transactionsNumber: parseFloat(item[8])
     }
   })
+  let klines = klinesAdd20.length > (breakthroughCoefficient + 2) ? klinesAdd20.slice(klinesAdd20.length-breakthroughCoefficient-2,klinesAdd20.length) : klinesAdd20
   // 获取ATR高点低点
   let HAL = getHighAndLow(klines.slice(0, klines.length - 2),symbol) // 高点低点
   let ATR = getATR(klines.slice(0, klines.length - 1), 14, symbol)
@@ -51,7 +55,8 @@ function klinesInit(symbol, data, quantityPrecision, pricePrecision) {
     lowPrice: klines[klines.length - 2].low,
     transactionsNumber:klines[klines.length - 2].transactionsNumber,
     symbol,
-    klines
+    klines,
+    klinesAdd20
   }
 }
 
@@ -160,12 +165,12 @@ function getAllKlines() {
     })
     let allCount = symbols.length
     async function getData(symbol,quantityPrecision,pricePrecision) {
-      let res = await getKlines(symbol,22).catch((err)=>{
+      let res = await getKlines(symbol,42).catch((err)=>{
         reject(err)
       })
       count++
       // 同时初始化
-      if (res.data.length == 22){
+      if (res.data.length >= 22){
         data.push(klinesInit(symbol,res.data,quantityPrecision,pricePrecision))
       }
       if (count === allCount) {
@@ -181,22 +186,60 @@ function getAllKlines() {
   })
 }
 
+// 信号
+function signal(symbolData,profitableSymbol) {
+  // k线收盘时，最高点突破，并且是阳线
+  // k线收盘时，最低点突破，并且是阴线
+  // 循环遍历，如果是在40根K线内是第一次突破，那么信号返回真 或者 标的物已经拥有浮盈
+  let klines20 = symbolData.klinesAdd20
+  function ng (data){
+    let solidHeight = Math.abs(data.closePrice - data.openPrice)
+    let upHatchedHeight = Math.abs(data.closePrice - data.highPrice) // 阳线的上影线
+    let downHatchedHeight = Math.abs(data.closePrice - data.lowPrice) // 阴线的下阴线
+    let LONG = data.highPrice > data.highestPoint && data.closePrice >= data.openPrice && ( solidHeight > upHatchedHeight || data.closePrice > data.highestPoint )
+    let SHORT = data.lowPrice < data.lowestPoint && data.closePrice <= data.openPrice && ( solidHeight > downHatchedHeight || data.closePrice < data.lowestPoint )
+    return {LONG,SHORT}
+  }
+  let ls = ng(symbolData) // 当前信号是要做多还是做空还是没有信号
+  if (ls.LONG||ls.SHORT){
+    let name = ls.LONG ? 'LONG' : 'SHORT'
+    let fname = ls.LONG ? 'SHORT' : 'LONG'
+    function klinesData(klines){
+      let HAL = getHighAndLow(klines.slice(0, klines.length - 2),symbolData.symbol) // 高点低点
+      return {
+        ...HAL,
+        closePrice: klines[klines.length - 2].close,
+        openPrice: klines[klines.length - 2].open,
+        highPrice: klines[klines.length - 2].high,
+        lowPrice: klines[klines.length - 2].low,
+        transactionsNumber:klines[klines.length - 2].transactionsNumber
+      }
+    }
+    let maxNum = klines20.length
+    let cs = breakthroughCoefficient + 2
+    let isOne = true
+    for(let i = maxNum - cs - 1; i >= 0; i--){
+      let objn = ng(klinesData(klines20.slice(i , i + cs)))
+      if (objn[name]){
+        isOne = false
+      }
+      if (objn[fname]){
+        break
+      }
+    }
+    return isOne || profitableSymbol.includes(symbolData.symbol)
+  }
+  return false
+}
+
 // 完全数据初始化函数 获取准备下单的数据
 async function getPreparingOrders(equity, positionIng){
-  // 信号
-  function signal(symbolData) {
-    // k线收盘时，最高点突破，并且是阳线
-    // k线收盘时，最低点突破，并且是阴线
-    let solidHeight = Math.abs(symbolData.closePrice - symbolData.openPrice)
-    let upHatchedHeight = Math.abs(symbolData.closePrice - symbolData.highPrice) // 阳线的上影线
-    let downHatchedHeight = Math.abs(symbolData.closePrice - symbolData.lowPrice) // 阴线的下阴线
-    let LONG = symbolData.highPrice > symbolData.highestPoint && symbolData.closePrice >= symbolData.openPrice && ( solidHeight > upHatchedHeight || symbolData.closePrice > symbolData.highestPoint )
-    let SHORT = symbolData.lowPrice < symbolData.lowestPoint && symbolData.closePrice <= symbolData.openPrice && ( solidHeight > downHatchedHeight || symbolData.closePrice < symbolData.lowestPoint )
-    return LONG || SHORT
-  }
   let primitiveData = weightSorting(await getAllKlines())
   let preparingOrders = [] // 准备下单的数据
-  let data = primitiveData.filter((item) => signal(item)) // 符合条件的下单
+  let profitableSymbol = positionIng.filter(item=>{
+    return Number(item.unrealizedProfit) > 0
+  }).map(item=>item.symbol) // 当前正收益的仓位
+  let data = primitiveData.filter((item) => signal(item,profitableSymbol)) // 符合条件的下单
   for (let i in data) {
     // 符合下单条件
     let symbol = data[i].symbol
