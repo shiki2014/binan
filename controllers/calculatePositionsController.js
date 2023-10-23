@@ -227,7 +227,9 @@ function signal(symbolData,profitableSymbol) {
         break
       }
     }
-    return isOne || profitableSymbol.includes(symbolData.symbol)
+    let positionIngItem = profitableSymbol.filter(item=>item.symbol === symbolData.symbol)
+    let add = positionIngItem[0] && positionIngItem[0].direction == name && Number(positionIngItem[0].unrealizedProfit) > 0// 加仓条件
+    return isOne || !!add
   }
   return false
 }
@@ -236,9 +238,13 @@ function signal(symbolData,profitableSymbol) {
 async function getPreparingOrders(equity, positionIng){
   let primitiveData = weightSorting(await getAllKlines())
   let preparingOrders = [] // 准备下单的数据
-  let profitableSymbol = positionIng.filter(item=>{
-    return Number(item.unrealizedProfit) > 0
-  }).map(item=>item.symbol) // 当前正收益的仓位
+  let profitableSymbol = positionIng.map(item=>{
+    return {
+      unrealizedProfit:item.unrealizedProfit,
+      symbol: item.symbol,
+      direction:item.positionSide
+    }
+  })
   let data = primitiveData.filter((item) => signal(item,profitableSymbol)) // 符合条件的下单
   for (let i in data) {
     // 符合下单条件
@@ -258,6 +264,7 @@ async function getPreparingOrders(equity, positionIng){
       ATR:data[i].ATR,
       closePrice:data[i].closePrice,
       quantityPrecision: data[i].quantityPrecision,
+      isOne: profitableSymbol.includes(data[i].symbol), // 是开仓还是加仓
       pricePrecision: data[i].pricePrecision,
       quantity:(position.position / data[i].closePrice).toFixed(data[i].quantityPrecision),
       direction,
