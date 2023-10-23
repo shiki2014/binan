@@ -205,7 +205,7 @@ async function getEquityAmount () {
     withdrawalAmplitude = (equityMaxHistory.equity - res.totalMarginBalance)/equityMaxHistory.equity
   }
   global.logger.info('回撤幅度', withdrawalAmplitude.toFixed(3))
-  return (equity/2) * Math.pow((1 - withdrawalAmplitude.toFixed(3)), 2)
+  return (equity/3) * Math.pow((1 - withdrawalAmplitude.toFixed(3)), 2)
   // 最大风险度在赢冲输缩规则，账户权益没有回撤的情况下：
   // 3每次标的物下单为账户权益的1.67%，风险度为 0.34%
   // 2每次标的物下单为账户权益的2.5%，风险度为 0.5%

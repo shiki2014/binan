@@ -82,7 +82,7 @@ function weightSorting(data){
   let sortList = data.map((item)=>{
     return item
   }).sort((a, b)=>{
-    return getAmplitude(b) -getAmplitude(a)
+    return getAmplitude(b) - getAmplitude(a)
   })
   // 排序规则根据 transactionsNumber（成交笔数）大在前小在后
   // let data2 = data.map((item)=>{
