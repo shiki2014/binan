@@ -85,13 +85,13 @@ function weightSorting(data){
     return getAmplitude(b) - getAmplitude(a)
   })
   // 排序规则根据 transactionsNumber（成交笔数）大在前小在后
-  // let data2 = data.map((item)=>{
-  //   return item
-  // }).sort((a, b)=>{
-  //   return b.klines[b.klines.length - 2].transactionsNumber - a.klines[a.klines.length - 2].transactionsNumber
-  // })
+  let data2 = data.map((item)=>{
+    return item
+  }).sort((a, b)=>{
+    return b.klines[b.klines.length - 2].transactionsNumber - a.klines[a.klines.length - 2].transactionsNumber
+  })
   // 新规则根据过去震荡频率
-  return sortList
+  return data2
 }
 
 // 寻找k线的最高点和最低点
