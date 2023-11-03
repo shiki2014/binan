@@ -193,11 +193,8 @@ function signal(symbolData,profitableSymbol) {
   // 循环遍历，如果是在40根K线内是第一次突破，那么信号返回真 或者 标的物已经拥有浮盈
   let klines20 = symbolData.klinesAdd20
   function ng (data){
-    let solidHeight = Math.abs(data.closePrice - data.openPrice)
-    let upHatchedHeight = Math.abs(data.closePrice - data.highPrice) // 阳线的上影线
-    let downHatchedHeight = Math.abs(data.closePrice - data.lowPrice) // 阴线的下阴线
-    let LONG = data.highPrice > data.highestPoint && data.closePrice >= data.openPrice && ( solidHeight > upHatchedHeight || data.closePrice > data.highestPoint )
-    let SHORT = data.lowPrice < data.lowestPoint && data.closePrice <= data.openPrice && ( solidHeight > downHatchedHeight || data.closePrice < data.lowestPoint )
+    let LONG = data.highPrice > data.highestPoint && data.closePrice >= data.openPrice
+    let SHORT = data.lowPrice < data.lowestPoint && data.closePrice <= data.openPrice
     return {LONG,SHORT}
   }
   let ls = ng(symbolData) // 当前信号是要做多还是做空还是没有信号
