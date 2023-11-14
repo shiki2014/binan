@@ -219,7 +219,7 @@ async function order (){
     global.logger.info('没有符合条件的标的')
     return
   }
-  let orderList = orderListOriginal.slice(0, 5) // 符合条件的前5
+  let orderList = orderListOriginal.slice(0, 8) // 符合条件的前8
   let count = 0
   let allCount = orderList.length
   global.logger.info('有信号的标的',orderListOriginal.map(item => item.symbol))
