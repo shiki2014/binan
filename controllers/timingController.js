@@ -344,6 +344,7 @@ async function deleteAllInvalidOrders(){
   // 分类
   let obj = {}
   let invalidOrders = []
+  // 最开始的删除策略
   for (let i in symbols) {
     let lData = orders.filter(item => (item.symbol+item.positionSide) === symbols[i]).sort((a,b) =>{
       return b.time - a.time
@@ -355,6 +356,13 @@ async function deleteAllInvalidOrders(){
       }
     }
   }
+  // 减仓的删除挂单，不会全部删除
+  // for (let i in orders){
+  //   let ss = orders[i].symbol + orders[i].positionSide
+  //   if (symbols.indexOf(ss) === -1) {
+  //     invalidOrders.push(orders[i])
+  //   }
+  // }
   if (invalidOrders.length > 0){
     global.logger.info('开始删除无效订单')
     for (let i in invalidOrders){
