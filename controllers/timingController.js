@@ -205,7 +205,10 @@ async function getEquityAmount () {
     withdrawalAmplitude = (equityMaxHistory.equity - res.totalMarginBalance)/equityMaxHistory.equity
   }
   global.logger.info('回撤幅度', withdrawalAmplitude.toFixed(3))
-  return (equity/3) * Math.pow((1 - withdrawalAmplitude.toFixed(3)), 2)
+  return {
+    num:(equity/3) * Math.pow((1 - withdrawalAmplitude.toFixed(3)), 2),
+    withdrawalAmplitude:withdrawalAmplitude.toFixed(3)
+  }
   // 最大风险度在赢冲输缩规则，账户权益没有回撤的情况下：
   // 3每次标的物下单为账户权益的1.67%，风险度为 0.34%
   // 2每次标的物下单为账户权益的2.5%，风险度为 0.5%
@@ -214,12 +217,14 @@ async function getEquityAmount () {
 // 下单！
 async function order (){
   let position = await getAccountPosition()
-  let orderListOriginal = await getPreparingOrders(await getEquityAmount() , position)
+  let equityAmount = await getEquityAmount()
+  let orderListOriginal = await getPreparingOrders(equityAmount.num, position)
   if (orderListOriginal.length == 0){
     global.logger.info('没有符合条件的标的')
     return
   }
-  let orderList = orderListOriginal.slice(0, 8) // 符合条件的前8
+  let orderNumber = parseInt(10 * (1 - equityAmount.withdrawalAmplitude )) // 下单数量
+  let orderList = orderListOriginal.slice(0, orderNumber < 1 ? 1 : orderNumber) // 符合条件的前orderNumber
   let count = 0
   let allCount = orderList.length
   global.logger.info('有信号的标的',orderListOriginal.map(item => item.symbol))
