@@ -229,11 +229,27 @@ async function order (){
   let allCount = orderList.length
   global.logger.info('有信号的标的',orderListOriginal.map(item => item.symbol))
   global.logger.info('开始下单',orderList.map(item => item.symbol).join(', '));
-  async function setOrder(item, callback){
+  // 生成一个从1.2到0.8递减的数组
+  function generateArray(length) {
+    if (length == 1){
+      return [1]
+    }
+    let startValue = 1.2;
+    let endValue = 0.8;
+    let step = (startValue - endValue) / (length - 1); // 计算递减步长
+    let resultArray = [];
+    for (let i = 0; i < length; i++) {
+      let value = (startValue - i * step).toFixed(4);
+      resultArray.push(parseFloat(value)); // 将字符串转换为浮点数
+    }
+    return resultArray;
+  }
+  let generatedArray = generateArray(orderList.length);
+  async function setOrder(item, callback, num){
     await contractOrder({
       symbol: item.symbol,
       positionSide: item.direction > 0 ? 'LONG' : 'SHORT',
-      quantity: parseFloat(item.quantity),
+      quantity: parseFloat(item.quantity) * num,
       stopPrice: item.stopPrice,
       leverage: item.leverage
     })
@@ -245,7 +261,7 @@ async function order (){
   function forOrder() {
     return new Promise(async function (resolve) {
       for (let i in orderList){
-        setOrder(orderList[i],resolve)
+        setOrder(orderList[i], resolve, generatedArray[i])
       }
     });
   }

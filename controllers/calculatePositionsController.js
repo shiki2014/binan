@@ -2,8 +2,8 @@
 const {  getKlines  } = require('../services/binanceContractService');
 const fs = require('fs');
 const breakthroughCoefficient = 20 // 突破系数
-const bc = 20 // 突破系数
-const breakthroughCoefficient20 = 20 // 多少根k线内算第一次突破
+// const bc = 20 // 突破系数
+// const breakthrough_coefficient20 = 20 // 多少根k线内算第一次突破
 // 整体逻辑
 
 // 在每天的19点和早上的7点进行时间校准合约交易对的数据更新
@@ -54,6 +54,7 @@ function klinesInit(symbol, data, quantityPrecision, pricePrecision) {
     highPrice: klines[klines.length - 2].high,
     lowPrice: klines[klines.length - 2].low,
     transactionsNumber:klines[klines.length - 2].transactionsNumber,
+    trendOscillation: trendOscillationCompute(klinesAdd20), // 金叉死叉次数
     symbol,
     klines,
     klinesAdd20
@@ -84,13 +85,28 @@ function weightSorting(data){
   }).sort((a, b)=>{
     return getAmplitude(b) - getAmplitude(a)
   })
+  // 根据金叉死叉次数排序 再根据 transactionsNumber（成交笔数） 排序
+  let arr = []
+  for (let i in data){
+    if(!arr[data[i].trendOscillation]){
+      arr[data[i].trendOscillation] = []
+    }
+    arr[data[i].trendOscillation].push(data[i])
+  }
   // 排序规则根据 transactionsNumber（成交笔数）大在前小在后
-  let data2 = data.map((item)=>{
-    return item
-  }).sort((a, b)=>{
-    return b.klines[b.klines.length - 2].transactionsNumber - a.klines[a.klines.length - 2].transactionsNumber
+  arr.map((item)=>{
+    return item.sort((a, b)=>{
+      return b.klines[b.klines.length - 2].transactionsNumber - a.klines[a.klines.length - 2].transactionsNumber
+    })
   })
-  // 新规则根据过去震荡频率
+  let data2 = [];
+  for (let i = 0; i < arr.length; i++) {
+    if (arr[i]){
+      for (let j = 0; j < arr[i].length; j++) {
+        data2.push(arr[i][j]);
+      }
+    }
+  }
   return data2
 }
 
@@ -232,7 +248,7 @@ function signal(symbolData,profitableSymbol) {
 }
 
 // 完全数据初始化函数 获取准备下单的数据
-async function getPreparingOrders(equity, positionIng){
+async function getPreparingOrders(equity, positionIng = []){
   let primitiveData = weightSorting(await getAllKlines())
   let preparingOrders = [] // 准备下单的数据
   let profitableSymbol = positionIng.map(item=>{
@@ -309,8 +325,8 @@ function getVolCompute(priceData){
   const sumReturns = returns.reduce((sum, ret) => sum + ret, 0);
   const averageReturn = sumReturns / returns.length;
   // 计算标准差
-  const squaredDeviations = returns.map(ret => Math.pow(ret - averageReturn, 2));
-  const sumSquaredDeviations = squaredDeviations.reduce((sum, dev) => sum + dev, 0);
+  const squared_Deviations = returns.map(ret => Math.pow(ret - averageReturn, 2));
+  const sumSquaredDeviations = squared_Deviations.reduce((sum, dev) => sum + dev, 0);
   const standardDeviation = Math.sqrt(sumSquaredDeviations / (returns.length - 1));
   // 根据比例因子计算波动率
   const scalingFactor = Math.sqrt(200); // 假设一年有200个交易日
@@ -339,8 +355,8 @@ function averageAmplitudeCompute (klineData) {
 // 平均交差次数用于判断一个品种趋势多还是震荡多。
 function trendOscillationCompute (klines) {
   function calculateEMACrossovers(data) {
-    const ema20 = calculateEMA(data, 5);
-    const ema50 = calculateEMA(data, 10);
+    const ema20 = calculateEMA(data, 10);
+    const ema50 = calculateEMA(data, 20);
     let goldenCrossCount = 0;
     let deathCrossCount = 0;
     for (let i = 1; i < data.length; i++) {
@@ -461,9 +477,9 @@ async function getAllExchangeInfo () {
 
 // 获取单个交易对计算指标
 async function getOneIndex(symbol) {
-  let res = await getKlines(symbol, 300)
+  let res = await getKlines(symbol, 120)
   if (res.data.length < 19) return 0
-  let klines = klinesInit(symbol, res.data).klines
+  let klines = klinesInit(symbol, res.data).klinesAdd20
   let ATR = getATRCompute(klines,14) // ATR
   let vol = getVolCompute(klines) // 波动率
   let averageAmplitude = averageAmplitudeCompute(klines) // 振幅
