@@ -8,6 +8,9 @@ const timing = require('./controllers/timingController')
 const tracking = require('./controllers/priceTrackingController')
 const test =  require('./test/test')
 const log4js = require('log4js')
+const util = require('./util/util')
+
+global.util = util
 
 log4js.configure({
   appenders: {

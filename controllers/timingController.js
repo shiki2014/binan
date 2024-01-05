@@ -244,12 +244,16 @@ async function order (){
     }
     return resultArray;
   }
+  function getNum(num,yNum){
+    let z = global.util.getPrecision(yNum)
+    return global.util.truncateDecimal(num,z)
+  }
   let generatedArray = generateArray(orderList.length);
   async function setOrder(item, callback, num){
     await contractOrder({
       symbol: item.symbol,
       positionSide: item.direction > 0 ? 'LONG' : 'SHORT',
-      quantity: parseFloat(item.quantity) * num,
+      quantity: getNum(parseFloat(item.quantity) * num, parseFloat(item.quantity)),
       stopPrice: item.stopPrice,
       leverage: item.leverage
     })
