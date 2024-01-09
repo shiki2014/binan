@@ -248,12 +248,31 @@ async function order (){
     let z = global.util.getPrecision(yNum)
     return global.util.truncateDecimal(num,z)
   }
+  // 获取下单数量
+  function getQuantity (item, num) {
+    let quantity = getNum(parseFloat(item.quantity) * num, parseFloat(item.quantity))
+    let minQuantity = 0
+    if (item.inWhiteList){
+      let minQty = parseFloat(item.minQty)
+      let notional = parseFloat(item.notional)
+      let closePrice = item.closePrice
+      let min = 0
+      while (min * minQty *  closePrice <= notional){
+        min++
+      }
+      minQuantity = min * minQty
+      if (quantity < minQuantity){
+        quantity = minQuantity
+      }
+    }
+    return quantity
+  }
   let generatedArray = generateArray(orderList.length);
   async function setOrder(item, callback, num){
     await contractOrder({
       symbol: item.symbol,
       positionSide: item.direction > 0 ? 'LONG' : 'SHORT',
-      quantity: getNum(parseFloat(item.quantity) * num, parseFloat(item.quantity)),
+      quantity: getQuantity(item, num),
       stopPrice: item.stopPrice,
       leverage: item.leverage
     })
