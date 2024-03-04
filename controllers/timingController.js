@@ -200,7 +200,7 @@ async function getEquityAmount () {
   let totalMarginBalance = Number(res.totalMarginBalance)/2 // 对半账户权益
   let equity = totalMarginBalance > availableBalance ? availableBalance : totalMarginBalance
   let equityMaxHistory = JSON.parse(await readFile('./data/equity.json'))
-  let withdrawalAmplitude = 1 // 回撤幅度
+  let withdrawalAmplitude = 0 // 回撤幅度
   if (equityMaxHistory.equity > res.totalMarginBalance){
     withdrawalAmplitude = (equityMaxHistory.equity - res.totalMarginBalance)/equityMaxHistory.equity
   }
