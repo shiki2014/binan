@@ -338,7 +338,7 @@ function getATR(data, cycle, symbol) {
   let historyATR = JSON.parse(getHistoryATR() || '{}')
   let kline = data[data.length - 1]
   let kline_1 = data[data.length - 2]
-  let atr = historyATR[symbol]
+  let atr = historyATR[symbol] || 0
   let tr = Math.max(kline.high - kline.low, Math.abs(kline.high - kline_1.close), Math.abs(kline.low - kline_1.close))
   return round6((tr + (cycle - 1) * atr) / cycle)
 }
