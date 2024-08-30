@@ -219,6 +219,21 @@ async function getOrderAmendment(symbol) {
   return res && res.data
 }
 
+// 账户成交历史 (USER_DATA)
+async function getUserTrades(symbol) {
+  const res = await contractAxios({
+    method: 'get',
+    url: '/fapi/v1/userTrades',
+    params: {
+      symbol,
+      timestamp: new Date().getTime()
+    }
+  }).catch(error => {
+    global.errorLogger('请求失败:', error?.response?.data)
+  })
+  return res && res.data
+}
+
 // 获取账户信息
 async function getAccountData() {
   const res = await contractAxios({
@@ -281,6 +296,7 @@ module.exports = {
   putListenKey,
   deleteOrder,
   getOrderAmendment,
+  getUserTrades,
   getOneOpenOrders,
   getOpenOrders,
   getListenKey

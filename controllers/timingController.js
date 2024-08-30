@@ -226,6 +226,11 @@ async function order (){
   let orderNumber = parseInt(10 * (1 - equityAmount.withdrawalAmplitude )) // 下单数量
   let orderList = orderListOriginal.slice(0, orderNumber < 1 ? 1 : orderNumber) // 符合条件的前orderNumber
   let count = 0
+  const addOrderNumber = orderList.reduce((count, item) => {
+    return !item.isOne ? count + 1 : count;
+  }, 0);
+  let maxAddOrderNumber = parseInt(addOrderNumber * (1 - equityAmount.withdrawalAmplitude )) // 最大加仓数量
+  let addCount = 0 // 加仓计数器
   let allCount = orderList.length
   global.logger.info('有信号的标的',orderListOriginal.map(item => item.symbol))
   global.logger.info('开始下单',orderList.map(item => item.symbol).join(', '));
@@ -284,6 +289,13 @@ async function order (){
   function forOrder() {
     return new Promise(async function (resolve) {
       for (let i in orderList){
+        if (!orderList[i].isOne){
+          addCount++
+        }
+        if (addCount > maxAddOrderNumber) {
+          global.logger.info(orderList[i].symbol,'不再加仓')
+          continue
+        }
         setOrder(orderList[i], resolve, generatedArray[i])
       }
     });

@@ -1,4 +1,4 @@
-const { getPositionRisk, getAccountData, getPositionSideDual, getListenKey,getKlines } = require('../services/binanceContractService');
+const { getPositionRisk, getAccountData, getPositionSideDual, getListenKey,getKlines,getUserTrades } = require('../services/binanceContractService');
 const { getPreparingOrders, getAllExchangeInfo, getHighAndLow, klinesInit, getATR, getOneIndex } = require('../controllers/calculatePositionsController');
 // 获取账户头寸
 async function getAccountPosition() {
@@ -47,7 +47,19 @@ async function setTakeProfit () {
 module.exports = async function () {
   // console.log('合约属性', await getPositionRisk('KEYUSDT'));
   // console.log('当前仓位', await getAccountPosition());
-  console.log(await setTakeProfit())
+  // console.log(await setTakeProfit())
+  let list = await getUserTrades('LINKUSDT')
+  console.log(list.map(item=>{
+    let date = new Date(item.time);  // 参数需要毫秒数，所以这里将秒数乘于 1000
+    Y = date.getFullYear() + '-';
+    M = (date.getMonth()+1 < 10 ? '0'+(date.getMonth()+1) : date.getMonth()+1) + '-';
+    D = date.getDate() + ' ';
+    h = date.getHours() + ':';
+    m = date.getMinutes() + ':';
+    s = date.getSeconds();
+    item.date = Y+M+D+h+m+s
+    return item
+  }))
   // let position = await getAccountPosition()
 
   // let orderListOriginal = await getPreparingOrders(1000 , position)
