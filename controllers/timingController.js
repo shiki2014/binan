@@ -168,7 +168,7 @@ async function setUpdateEquity(){
 async function updateAllExchangeInfo(){
   let res = await getExchangeInfo()
   let symbols = res.data.symbols
-  let data = symbols.filter(item => item.symbol.includes("USDT"))
+  let data = symbols.filter(item => item.symbol.includes("USDT")).filter(item => item.status === 'TRADING')
   await writeFile('./data/data.json', JSON.stringify(data))
   global.logger.info('更新交易对成功')
   setUpdateEquity()
