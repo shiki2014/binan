@@ -160,6 +160,7 @@ async function setUpdateEquity(){
     data.equity = equity
   }
   await writeFile('./data/equity.json', JSON.stringify(data))
+  global.logger.info('账号历史最大权益更新成功')
   return true
 }
 

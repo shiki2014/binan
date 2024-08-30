@@ -511,7 +511,7 @@ async function getAllExchangeInfo() {
 // 获取单个交易对计算指标
 async function getOneIndex(symbol) {
   let res = await getKlines(symbol, 120)
-  if (res.data.length < 19) return 0
+  if (!res || !res.data || res.data.length < 19) return 0
   let klines = klinesInit(symbol, res.data).klinesAdd20
   let ATR = getATRCompute(klines, 14) // ATR
   let vol = getVolCompute(klines) // 波动率
