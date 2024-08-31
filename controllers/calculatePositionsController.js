@@ -214,7 +214,7 @@ function getAllKlines() {
       })
       count++
       // 同时初始化
-      if (res.data.length >= 22) {
+      if (!!res && !!res.data && res.data.length >= 22) {
         data.push(klinesInit(symbol, res.data, quantityPrecision, pricePrecision, getMinOrderInfo(filters), whiteList.includes(symbol)))
       }
       if (count === allCount) {

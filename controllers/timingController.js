@@ -275,13 +275,19 @@ async function order (){
   }
   let generatedArray = generateArray(orderList.length);
   async function setOrder(item, callback, num){
-    await contractOrder({
-      symbol: item.symbol,
-      positionSide: item.direction > 0 ? 'LONG' : 'SHORT',
-      quantity: getQuantity(item, num),
-      stopPrice: item.stopPrice,
-      leverage: item.leverage
-    })
+    let quantity = getQuantity(item, num)
+    if (quantity == 0){
+      global.logger.info(item.symbol,'数量为0不再下单')
+    }
+    else {
+      await contractOrder({
+        symbol: item.symbol,
+        positionSide: item.direction > 0 ? 'LONG' : 'SHORT',
+        quantity: quantity,
+        stopPrice: item.stopPrice,
+        leverage: item.leverage
+      })
+    }
     count++
     if(count == allCount){
       callback()
@@ -295,6 +301,10 @@ async function order (){
         }
         if (addCount > maxAddOrderNumber) {
           global.logger.info(orderList[i].symbol,'不再加仓')
+          count++
+          if(count == allCount){
+            callback()
+          }
           continue
         }
         setOrder(orderList[i], resolve, generatedArray[i])
