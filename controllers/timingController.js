@@ -303,7 +303,7 @@ async function order (){
           global.logger.info(orderList[i].symbol,'不再加仓')
           count++
           if(count == allCount){
-            callback()
+            resolve()
           }
           continue
         }
@@ -362,7 +362,6 @@ async function getOneRisk(symbol, entryPrice, leverage, isolatedWallet){
 // 获取仓位盈亏以及风险
 async function getPositionRisk () {
   let position = await getAccountPosition()
-  console.log('当前仓位', position);
   let unrealizedProfit = 0
   let maxRisk = 0
   let marginAlreadyUsed = 0
@@ -383,6 +382,14 @@ async function getPositionRisk () {
 
 // 获取当前仓位
 async function start () {
+  await order()
+    // 防止币安未能及时处理延迟三秒
+  setTimeout(async function() {
+    global.logger.info('开始仓位止盈设置')
+    await setTakeProfit()
+    global.logger.info('删除无效委托')
+    await deleteAllInvalidOrders()
+  }, 3000);
   // let time = await updateTime()
   // if (!time) return global.errorLogger('时间同步失败', time)
   getPositionRisk()
