@@ -12,7 +12,7 @@
   "license": "ISC",
   "dependencies": {
     "@binance/connector": "^3.0.0-rc.2",
-    "axios": "^1.6.0",
+    "axios": "^1.7.7",
     "crypto": "^1.0.1",
     "dotenv": "^16.3.0",
     "express": "^4.19.2",
