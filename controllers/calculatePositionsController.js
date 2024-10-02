@@ -72,7 +72,7 @@ function getAmplitude(item) {
 }
 
 // 标的物权重排序
-function weightSorting(data) {
+function weightSorting(data, profitableSymbol) {
   // x * 0.6 + y * 0.4
   // 根据品种的趋势特征进行排序
   // let TO = JSON.parse(getTrendOscillation())
@@ -110,12 +110,17 @@ function weightSorting(data) {
       }
     }
   }
-  // 白名单放在前面
+  let ingSymbols = profitableSymbol.map(item=>item.symbol)
+  // 加仓放在后，第一次开仓的放在前，风险分散化
   return data2.sort((a, b) => {
-    if (a.inWhiteList) {
-      return -1;
-    } else if (b.inWhiteList) {
-      return 1;
+    if (!ingSymbols.includes(a.symbol) !== !ingSymbols.includes(b.symbol)) {
+      return !ingSymbols.includes(b.symbol) - !ingSymbols.includes(a.symbol); //  为 true 时，返回 1，将 b 排在前面
+    } else {
+      return 0;
+    }
+  }).sort((a, b) => { // 白名单放在前面
+    if (!!a.inWhiteList !== !!b.inWhiteList) {
+      return !!b.inWhiteList - !!a.inWhiteList; //  为 true 时，返回 1，将 b 排在前面
     } else {
       return 0;
     }
@@ -286,8 +291,7 @@ async function getPreparingOrders(equity, positionIng = []) {
       direction: item.positionSide
     }
   })
-  let data = weightSorting(primitiveData.filter((item) => signal(item, profitableSymbol))) // 符合条件的下单
-
+  let data = weightSorting(primitiveData.filter((item) => signal(item, profitableSymbol)),profitableSymbol) // 符合条件的下单
   for (let i in data) {
     // 符合下单条件
     let symbol = data[i].symbol
