@@ -298,16 +298,19 @@ async function order (){
       for (let i in orderList){
         if (!orderList[i].isOne){
           addCount++
-        }
-        if (addCount > maxAddOrderNumber) {
-          global.logger.info(orderList[i].symbol,'不再加仓')
-          count++
-          if(count == allCount){
-            resolve()
+          if (addCount > maxAddOrderNumber) {
+            global.logger.info(orderList[i].symbol,'不再加仓')
+            count++
+            if(count == allCount){
+              resolve()
+            }
+            continue
+          } else {
+            setOrder(orderList[i], resolve, generatedArray[i])
           }
-          continue
+        } else {
+          setOrder(orderList[i], resolve, generatedArray[i])
         }
-        setOrder(orderList[i], resolve, generatedArray[i])
       }
     });
   }

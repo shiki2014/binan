@@ -135,7 +135,9 @@ async function contractOrder({ symbol, positionSide, quantity, stopPrice, levera
 
 // 设置修改止损止盈价格
 async function setStopPrice(symbol, positionSide, stopPrice) {
-  console.log(symbol, stopPrice)
+  if (process.env.NODE_ENV === 'development'){
+    return {}
+  }
   const res = await contractAxios({
     method: 'post',
     url: '/fapi/v1/order',

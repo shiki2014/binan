@@ -72,7 +72,7 @@ function getAmplitude(item) {
 }
 
 // 标的物权重排序
-function weightSorting(data, profitableSymbol) {
+function weightSorting(data, ingSymbols) {
   // x * 0.6 + y * 0.4
   // 根据品种的趋势特征进行排序
   // let TO = JSON.parse(getTrendOscillation())
@@ -110,7 +110,6 @@ function weightSorting(data, profitableSymbol) {
       }
     }
   }
-  let ingSymbols = profitableSymbol.map(item=>item.symbol)
   // 加仓放在后，第一次开仓的放在前，风险分散化
   return data2.sort((a, b) => {
     if (!ingSymbols.includes(a.symbol) !== !ingSymbols.includes(b.symbol)) {
@@ -291,7 +290,8 @@ async function getPreparingOrders(equity, positionIng = []) {
       direction: item.positionSide
     }
   })
-  let data = weightSorting(primitiveData.filter((item) => signal(item, profitableSymbol)),profitableSymbol) // 符合条件的下单
+  let ingSymbols = positionIng.map(item => item.symbol)
+  let data = weightSorting(primitiveData.filter((item) => signal(item, profitableSymbol)),ingSymbols) // 符合条件的下单
   for (let i in data) {
     // 符合下单条件
     let symbol = data[i].symbol
@@ -313,7 +313,7 @@ async function getPreparingOrders(equity, positionIng = []) {
       notional: data[i].notional, // 最小下单名义价值
       closePrice: data[i].closePrice,
       quantityPrecision: data[i].quantityPrecision,
-      isOne: profitableSymbol.includes(data[i].symbol), // 是开仓还是加仓
+      isOne: !ingSymbols.includes(data[i].symbol), // 是开仓还是加仓
       pricePrecision: data[i].pricePrecision,
       quantity: (position.position / data[i].closePrice).toFixed(data[i].quantityPrecision),
       direction,
