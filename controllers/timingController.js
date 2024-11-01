@@ -321,13 +321,27 @@ async function order (){
 // 对所有开仓并符合条件的标的物设置止盈
 async function setTakeProfit () {
   let positionList = await getAccountPosition() // 所有头寸
+  let orders = await getOpenOrders()
+  orders = orders.map(function(item){
+    item.orderId = item.orderId.toString()
+    return item
+  })
+  function getOneOrder(symbol){
+    for (let i in orders){
+      if (orders[i].symbol == symbol){
+        return orders[i]
+      }
+    }
+  }
   let takeProfitList = []
   function signal (item){
+    // 做多如果10天最低点高于止损位置，止损位置上移
+    // 做空如果10天最高点低于止损位置，止损位置下移
     if (item.positionSide == 'SHORT'){
-      return item.highestPoint < Number(item.entryPrice)
+      return item.highestPoint < Number(getOneOrder(item.symbol).stopPrice)
     }
     if (item.positionSide == 'LONG'){
-      return item.lowestPoint > Number(item.entryPrice)
+      return item.lowestPoint > Number(getOneOrder(item.symbol).stopPrice)
     }
     return false
   }
@@ -344,7 +358,12 @@ async function setTakeProfit () {
       takeProfitList.push(data)
       let stopPrice = data.positionSide == 'SHORT' ? data.highestPoint : data.lowestPoint
       await setStopPrice(data.symbol, data.positionSide, stopPrice)
-      global.logger.info(`${data.symbol}设置止盈成功`)
+      if (data.positionSide == 'SHORT'){
+        global.logger.info(data.highestPoint < Number(data.entryPrice) ? `${data.symbol}设置止盈成功` : `${data.symbol}设置止损移动成功`)
+      }
+      if (data.positionSide == 'LONG'){
+        global.logger.info(data.lowestPoint > Number(data.entryPrice) ? `${data.symbol}设置止盈成功` : `${data.symbol}设置止损移动成功`)
+      }
     }
   }
   if (takeProfitList.length === 0){
