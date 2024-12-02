@@ -47,6 +47,8 @@ function klinesInit(symbol, data, quantityPrecision, pricePrecision, minOrderInf
     ...HAL,
     ATR,
     minQty: minOrderInfo.minQty, // 最小数量
+	maxQty: minOrderInfo.maxQty, // 最大数量
+	stepSize: minOrderInfo.stepSize, // 进步值
     notional: minOrderInfo.notional, // 最小名义价值
     inWhiteList, // 是否在白名单里
     quantityPrecision, // 仓位精度
@@ -198,18 +200,21 @@ function getAllKlines() {
     function getMinOrderInfo(filters) {
       // 获取最小下单信息
       let minQty = 0
+	  let maxQty = 0
       let notional = 0
       for (let i in filters) {
         if (filters[i].filterType == 'MARKET_LOT_SIZE') {
           // 市价订单数量限制
           minQty = filters[i].minQty
+		  maxQty = filters[i].maxQty
+		  stepSize = filters[i].stepSize // 进步值
         }
         if (filters[i].filterType == 'MIN_NOTIONAL') {
           // 最小名义价值
           notional = filters[i].notional
         }
       }
-      return { minQty, notional }
+      return { minQty, notional , maxQty, stepSize}
     }
     let allCount = symbols.length
     async function getData(symbol, quantityPrecision, pricePrecision, filters) {
@@ -310,6 +315,8 @@ async function getPreparingOrders(equity, positionIng = []) {
       ATR: data[i].ATR,
       inWhiteList: data[i].inWhiteList,
       minQty: data[i].minQty, // 最小下单数量
+	  maxQty: data[i].maxQty, // 最大下单数量
+	  stepSize: data[i].stepSize, // 进步值
       notional: data[i].notional, // 最小下单名义价值
       closePrice: data[i].closePrice,
       quantityPrecision: data[i].quantityPrecision,

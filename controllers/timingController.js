@@ -260,15 +260,21 @@ async function order (){
     let minQuantity = 0
     if (item.inWhiteList){
       let minQty = parseFloat(item.minQty)
+	  let maxQty = parseFloat(item.maxQty)
+	  let stepSize = parseFloat(item.stepSize)
       let notional = parseFloat(item.notional)
       let closePrice = item.closePrice
-      let min = 0
-      while (min * minQty *  closePrice <= notional){
-        min++
-      }
-      minQuantity = min * minQty
+	  if (minQty *  closePrice <= notional){
+		minQuantity = Math.ceil(notional/(stepSize * closePrice)) * stepSize // 需要多少个进步值才可以大于最小名义价值
+
+	  } else{
+		minQuantity = minQty
+	  }
       if (quantity < minQuantity){
         quantity = minQuantity
+      }
+	  if (quantity > maxQty){
+        quantity = maxQty
       }
     }
     return quantity
