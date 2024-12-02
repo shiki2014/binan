@@ -72,6 +72,18 @@ function setConfig(config) {
   }
   return config
 }
+
+function errorSet(error){
+	if (error.config) {
+		global.errorLogger(`请求类型: ${error.config.method}`)
+		global.errorLogger(`请求路径: ${error.config.url}`)
+		global.errorLogger(`请求参数: ${JSON.stringify(error.config.params || error.config.data)}`)
+	}
+  error.message && global.errorLogger(error.message)
+  error.response && global.errorLogger(error.response.data)
+	return Promise.reject(error)
+}
+
 // 请求拦截器
 contractAxios.interceptors.request.use(setConfig)
 spotsAxios.interceptors.request.use(setConfig)
@@ -80,16 +92,12 @@ spotsAxios.interceptors.request.use(setConfig)
 spotsAxios.interceptors.response.use(response => {
   return Promise.resolve(response)
 }, error => {
-  error.message && global.errorLogger(error.message)
-  error.response && global.errorLogger(error.response.data)
-  return Promise.reject(error)
+	return errorSet(error)
 })
 contractAxios.interceptors.response.use(response => {
   return Promise.resolve(response)
 }, error => {
-  error.message && global.errorLogger(error.message)
-  error.response && global.errorLogger(error.response.data)
-  return Promise.reject(error)
+  return errorSet(error)
 })
 
 module.exports = {

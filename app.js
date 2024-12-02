@@ -27,8 +27,8 @@ log4js.configure({
 const logger = log4js.getLogger();
 const errorLogger = log4js.getLogger('error');
 global.logger = logger;
-global.errorLogger = (msg) =>{
-  errorLogger.error(msg)
+global.errorLogger = (...msg) =>{
+  errorLogger.error(...msg)
 }
 // 配置中间件
 // ...
