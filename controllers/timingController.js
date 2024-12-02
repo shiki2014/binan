@@ -259,21 +259,21 @@ async function order (){
     let quantity = getNum(parseFloat(item.quantity) * num, parseFloat(item.quantity))
     let minQuantity = 0
     let minQty = parseFloat(item.minQty)
-		let maxQty = parseFloat(item.maxQty)
-		let stepSize = parseFloat(item.stepSize)
-		let notional = parseFloat(item.notional)
-		let closePrice = item.closePrice
-		if (minQty *  closePrice <= notional){
-			minQuantity = Math.ceil(notional/(stepSize * closePrice)) * stepSize // 需要多少个进步值才可以大于最小名义价值
-		} else{
-			minQuantity = minQty
-		}
-		if (quantity < minQuantity){
-			quantity = minQuantity
-		}
-		if (quantity > maxQty){
-			quantity = maxQty
-		}
+    let maxQty = parseFloat(item.maxQty)
+    let stepSize = parseFloat(item.stepSize)
+    let notional = parseFloat(item.notional)
+    let closePrice = item.closePrice
+    if (minQty *  closePrice <= notional){
+      minQuantity = Math.ceil(notional/(stepSize * closePrice)) * stepSize // 需要多少个进步值才可以大于最小名义价值
+    } else{
+      minQuantity = minQty
+    }
+    if (quantity < minQuantity){
+      quantity = minQuantity
+    }
+    if (quantity > maxQty){
+      quantity = maxQty
+    }
     return quantity
   }
   let generatedArray = generateArray(orderList.length);
