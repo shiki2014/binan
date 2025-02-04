@@ -520,7 +520,7 @@ module.exports = async function () {
       await setTakeProfit()
       setTimeout(async function() {
         global.logger.info('删除无效委托')
-        await deleteAllInvalidOrders()
+        await deleteAllInvalidOrders(true)
       }, 10000);
     }, 3000);
   })
