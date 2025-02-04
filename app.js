@@ -27,8 +27,8 @@ log4js.configure({
 const logger = log4js.getLogger();
 const errorLogger = log4js.getLogger('error');
 global.logger = logger;
-global.errorLogger = (msg) =>{
-  errorLogger.error(msg)
+global.errorLogger = (...msg) =>{
+  errorLogger.error(...msg)
 }
 // 配置中间件
 // ...
@@ -39,7 +39,7 @@ app.use('/api', apiRoutes)
 // 将所有其他请求转发到 Vue
 app.use(express.static('dist'))
 app.get('*', (req, res) => {
-	res.sendFile(path.resolve(__dirname, 'dist', 'index.html'))
+  res.sendFile(path.resolve(__dirname, 'dist', 'index.html'))
 })
 
 // 启动应用程序
