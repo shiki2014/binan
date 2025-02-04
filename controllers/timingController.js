@@ -260,20 +260,20 @@ async function order (){
     let minQuantity = 0
     if (item.inWhiteList){
       let minQty = parseFloat(item.minQty)
-	  let maxQty = parseFloat(item.maxQty)
-	  let stepSize = parseFloat(item.stepSize)
+      let maxQty = parseFloat(item.maxQty)
+      let stepSize = parseFloat(item.stepSize)
       let notional = parseFloat(item.notional)
       let closePrice = item.closePrice
-	  if (minQty *  closePrice <= notional){
-		minQuantity = Math.ceil(notional/(stepSize * closePrice)) * stepSize // 需要多少个进步值才可以大于最小名义价值
+      if (minQty *  closePrice <= notional){
+        minQuantity = Math.ceil(notional/(stepSize * closePrice)) * stepSize // 需要多少个进步值才可以大于最小名义价值
 
-	  } else{
-		minQuantity = minQty
-	  }
+      } else{
+        minQuantity = minQty
+      }
       if (quantity < minQuantity){
         quantity = minQuantity
       }
-	  if (quantity > maxQty){
+      if (quantity > maxQty){
         quantity = maxQty
       }
     }
@@ -410,20 +410,22 @@ async function getPositionRisk () {
 
 // 获取当前仓位
 async function start () {
-  await order()
+  // await order()
+  deleteAllInvalidOrders()
+  console.log('完成')
     // 防止币安未能及时处理延迟三秒
-  setTimeout(async function() {
-    global.logger.info('开始仓位止盈设置')
-    await setTakeProfit()
-    global.logger.info('删除无效委托')
-    await deleteAllInvalidOrders()
-  }, 3000);
+  // setTimeout(async function() {
+  //   global.logger.info('开始仓位止盈设置')
+  //   await setTakeProfit()
+  //   global.logger.info('删除无效委托')
+  //   await deleteAllInvalidOrders()
+  // }, 3000);
   // let time = await updateTime()
   // if (!time) return global.errorLogger('时间同步失败', time)
-  getPositionRisk()
+  // getPositionRisk()
   // let data = await getOpenOrders()
   // console.log(data)
-  deleteAllInvalidOrders()
+  // deleteAllInvalidOrders()
   // updateAllExchangeInfo()
   // console.log('符合条件可以下单的仓位')
   // let list = await getPreparingOrders(3000)
@@ -435,7 +437,7 @@ async function start () {
 }
 
 // 删除已经无用的委托
-async function deleteAllInvalidOrders(){
+async function deleteAllInvalidOrders(isDeL){
   let orders = await getOpenOrders()
   orders = orders.map(function(item){
     item.orderId = item.orderId.toString()
@@ -459,12 +461,14 @@ async function deleteAllInvalidOrders(){
     }
   }
   // 减仓的删除挂单，不会全部删除
-  // for (let i in orders){
-  //   let ss = orders[i].symbol + orders[i].positionSide
-  //   if (symbols.indexOf(ss) === -1) {
-  //     invalidOrders.push(orders[i])
-  //   }
-  // }
+  if (isDeL){ // 是否会删除减仓后的无用挂单。
+    for (let i in orders){
+      let ss = orders[i].symbol + orders[i].positionSide
+      if (symbols.indexOf(ss) === -1) {
+        invalidOrders.push(orders[i])
+      }
+    }
+  }
   if (invalidOrders.length > 0){
     global.logger.info('开始删除无效订单')
     for (let i in invalidOrders){
@@ -517,8 +521,10 @@ module.exports = async function () {
     setTimeout(async function() {
       global.logger.info('开始仓位止盈设置')
       await setTakeProfit()
-      global.logger.info('删除无效委托')
-      await deleteAllInvalidOrders()
+      setTimeout(async function() {
+        global.logger.info('删除无效委托')
+        await deleteAllInvalidOrders()
+      }, 10000);
     }, 3000);
   })
 };
