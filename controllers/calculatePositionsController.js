@@ -241,13 +241,13 @@ function getAllKlines() {
 
 // 信号
 function signal(symbolData, profitableSymbol) {
-  // k线收盘时，最高点突破，并且是阳线
-  // k线收盘时，最低点突破，并且是阴线
+  // k线收盘时，收盘价突破最高点，并且是阳线
+  // k线收盘时，收盘价突破最低点，并且是阴线
   // 循环遍历，如果是在40根K线内是第一次突破，那么信号返回真 或者 标的物已经拥有浮盈
   let klines20 = symbolData.klinesAdd20
   function ng(data) {
-    let LONG = data.highPrice > data.highestPoint && data.closePrice >= data.openPrice
-    let SHORT = data.lowPrice < data.lowestPoint && data.closePrice <= data.openPrice
+    let LONG = data.closePrice > data.highestPoint && data.closePrice >= data.openPrice
+    let SHORT = data.closePrice < data.lowestPoint && data.closePrice <= data.openPrice
     return { LONG, SHORT }
   }
   let ls = ng(symbolData) // 当前信号是要做多还是做空还是没有信号
