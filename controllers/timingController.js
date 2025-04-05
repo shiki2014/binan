@@ -230,7 +230,8 @@ async function order (){
   const addOrderNumber = orderList.reduce((count, item) => {
     return !item.isOne ? count + 1 : count;
   }, 0);
-  let maxAddOrderNumber = parseInt(addOrderNumber * (1 - equityAmount.withdrawalAmplitude )) // 最大加仓数量
+  // let maxAddOrderNumber = parseInt(addOrderNumber * (1 - equityAmount.withdrawalAmplitude )) // 最大开仓数量
+  let maxAddOrderNumber = addOrderNumber // 最大开仓加仓数量不再有限制
   let addCount = 0 // 加仓计数器
   let allCount = orderList.length
   global.logger.info('有信号的标的',orderListOriginal.map(item => item.symbol))

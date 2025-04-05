@@ -112,12 +112,13 @@ function weightSorting(data, ingSymbols) {
       }
     }
   }
-  // 加仓放在后，第一次开仓的放在前，风险分散化
+  // 加仓放在后，第一次开仓的放在前，风险分散化（放弃）
+  // 加仓放在前面，第一次开仓放在后面
   return data2.sort((a, b) => {
     if (!ingSymbols.includes(a.symbol) !== !ingSymbols.includes(b.symbol)) {
-      return !ingSymbols.includes(b.symbol) - !ingSymbols.includes(a.symbol); //  为 true 时，返回 1，将 b 排在前面
+      return !ingSymbols.includes(a.symbol) - !ingSymbols.includes(b.symbol); // 加仓的排在前面
     } else {
-      return 0;
+      return 0; // 保持原顺序
     }
   }).sort((a, b) => { // 白名单放在前面
     if (!!a.inWhiteList !== !!b.inWhiteList) {
