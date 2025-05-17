@@ -302,14 +302,16 @@ async function getPreparingOrders(equity, positionIng = []) {
     // 符合下单条件
     let symbol = data[i].symbol
     let positionLeverage = 1
+    let positionIngData = {}
     // positionLeverage = positionIng.find(item => item.symbol === symbol).leverage || 1
     for (let j in positionIng) {
       if (positionIng[j].symbol === symbol) {
+        positionIngData = positionIng[j]
         positionLeverage = positionIng[j].leverage
       }
     }
     let direction = data[i].highPrice > data[i].highestPoint ? 1 : -1
-    let position = getPosition(data[i].ATR, data[i].currentPrice, equity, direction, data[i].pricePrecision, positionLeverage)
+    let position = getPosition(data[i].ATR, data[i].currentPrice, equity, direction, data[i].pricePrecision, positionLeverage,ingSymbols.includes(data[i].symbol)?positionIngData:false)
     preparingOrders.push({
       ...position,
       amplitude: getAmplitude(data[i]),
@@ -479,7 +481,7 @@ function getATRCompute(data, cycle) {
 }
 
 // 仓位管理-ATR均衡 风险管理函数
-function getPosition(atr, price, equity, direction, pricePrecision, leverageIng) {
+function getPosition(atr, price, equity, direction, pricePrecision, leverageIng, positionIngData) {
   // direction方向
   // ATR均衡策略规则
   // 每次下单为账号权益的10%
@@ -493,6 +495,15 @@ function getPosition(atr, price, equity, direction, pricePrecision, leverageIng)
   let leverage = 1 // 杠杆
   let ATR14 = 2 * atr // 使用ATR周期为14计算ATR
   let stopPrice = (direction > 0 ? (price - ATR14) : (price + ATR14)).toFixed(pricePrecision) // 止损价格
+  if (positionIngData) {
+    if(direction > 0){
+      stopPrice = stopPrice > positionIngData.entryPrice ? stopPrice : positionIngData.entryPrice
+      // 做多加仓止损不能小于当前仓位权益
+    } else {
+      stopPrice = stopPrice < positionIngData.entryPrice ? stopPrice : positionIngData.entryPrice
+      // 做空加仓止损不能大于当前仓位权益
+    }
+  }
   let decline = ATR14 / price // 跌幅
   // 计算部分
   if (decline > 0.2) {
