@@ -167,6 +167,7 @@ async function setUpdateEquity(){
 // 更新合约交易对
 async function updateAllExchangeInfo(){
   let res = await getExchangeInfo()
+  if (!res) { return global.logger.info('更新交易对失败') }
   let symbols = res.data.symbols
   let data = symbols.filter(item => item.symbol.includes("USDT")).filter(item => item.status === 'TRADING')
   await writeFile('./data/data.json', JSON.stringify(data))
@@ -220,11 +221,13 @@ async function order (){
   let position = await getAccountPosition()
   let equityAmount = await getEquityAmount()
   let orderListOriginal = await getPreparingOrders(equityAmount.num, position)
+  let allExchange = await getAllExchangeInfo()
+  let tradingExchangeNum = allExchange.filter(symbol => symbol.status === 'TRADING').length // 可交易的合约的数量
   if (orderListOriginal.length == 0){
     global.logger.info('没有符合条件的标的')
     return
   }
-  let orderNumber = parseInt(10 * (1 - equityAmount.withdrawalAmplitude )) // 下单数量
+  let orderNumber = parseInt(tradingExchangeNum/16 * (1 - equityAmount.withdrawalAmplitude )) // 下单数量
   let orderList = orderListOriginal.slice(0, orderNumber < 1 ? 1 : orderNumber) // 符合条件的前orderNumber
   let count = 0
   const addOrderNumber = orderList.reduce((count, item) => {
@@ -326,10 +329,32 @@ async function order (){
 async function setTakeProfit () {
   let positionList = await getAccountPosition() // 所有头寸
   let orders = await getOpenOrders()
+  let allExchange = await getAllExchangeInfo()
   orders = orders.map(function(item){
     item.orderId = item.orderId.toString()
     return item
   })
+  function getPricePrecisionFromTickSize(tickSize) {
+    const tickSizeStr = tickSize.toString()
+    if (tickSizeStr.includes('.')) {
+        return tickSizeStr.split('.')[1].length
+    }
+    return 0
+}
+  function getTickSize(symbol) {
+    const symbolInfo = allExchange.find(item => item.symbol === symbol);
+    if (symbolInfo) {
+        const priceFilter = symbolInfo.filters.find(filter => filter.filterType === 'PRICE_FILTER')
+        return priceFilter ? priceFilter.tickSize : '0.0001'
+    }
+    return '0.0001'
+  }
+  function formatPriceByTickSize(price, tickSize) {
+    const tickSizeNum = parseFloat(tickSize)
+    const precision = getPricePrecisionFromTickSize(tickSize)
+    const adjustedPrice = Math.round(price / tickSizeNum) * tickSizeNum
+    return parseFloat(adjustedPrice.toFixed(precision))
+  }
   function getOneOrder(symbol){
     for (let i in orders){
       if (orders[i].symbol == symbol){
@@ -361,7 +386,8 @@ async function setTakeProfit () {
     if (signal(data)){
       takeProfitList.push(data)
       let stopPrice = data.positionSide == 'SHORT' ? data.highestPoint : data.lowestPoint
-      await setStopPrice(data.symbol, data.positionSide, stopPrice)
+      let formattedStopPrice = formatPriceByTickSize(stopPrice, getTickSize(data.symbol));
+      await setStopPrice(data.symbol, data.positionSide, formattedStopPrice)
       if (data.positionSide == 'SHORT'){
         global.logger.info(data.highestPoint < Number(data.entryPrice) ? `${data.symbol}设置止盈成功` : `${data.symbol}设置止损移动成功`)
       }
