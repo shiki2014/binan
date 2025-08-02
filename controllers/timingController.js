@@ -220,15 +220,14 @@ async function getEquityAmount () {
 async function order (){
   let position = await getAccountPosition()
   let equityAmount = await getEquityAmount()
-  let orderListOriginal = await getPreparingOrders(equityAmount.num, position)
   let allExchange = await getAllExchangeInfo()
   let tradingExchangeNum = allExchange.filter(symbol => symbol.status === 'TRADING').length // 可交易的合约的数量
-  if (orderListOriginal.length == 0){
+  let orderNumber = parseInt(tradingExchangeNum/16 * (1 - equityAmount.withdrawalAmplitude )) // 最多下单数量
+  let orderList = await getPreparingOrders(equityAmount.num, position, allExchange, orderNumber)
+  if (orderList.length == 0){
     global.logger.info('没有符合条件的标的')
     return
   }
-  let orderNumber = parseInt(tradingExchangeNum/16 * (1 - equityAmount.withdrawalAmplitude )) // 下单数量
-  let orderList = orderListOriginal.slice(0, orderNumber < 1 ? 1 : orderNumber) // 符合条件的前orderNumber
   let count = 0
   const addOrderNumber = orderList.reduce((count, item) => {
     return !item.isOne ? count + 1 : count;
@@ -237,7 +236,6 @@ async function order (){
   let maxAddOrderNumber = addOrderNumber // 最大开仓加仓数量不再有限制
   let addCount = 0 // 加仓计数器
   let allCount = orderList.length
-  global.logger.info('有信号的标的',orderListOriginal.map(item => item.symbol))
   global.logger.info('开始下单',orderList.map(item => item.symbol).join(', '));
   // 生成一个从1.2到0.8递减的数组
   function generateArray(length) {
@@ -340,7 +338,7 @@ async function setTakeProfit () {
         return tickSizeStr.split('.')[1].length
     }
     return 0
-}
+  }
   function getTickSize(symbol) {
     const symbolInfo = allExchange.find(item => item.symbol === symbol);
     if (symbolInfo) {

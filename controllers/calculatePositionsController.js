@@ -286,7 +286,7 @@ function signal(symbolData, profitableSymbol) {
 }
 
 // 完全数据初始化函数 获取准备下单的数据
-async function getPreparingOrders(equity, positionIng = []) {
+async function getPreparingOrders(equity, positionIng = [], allExchange, orderNumber) {
   let primitiveData = await getAllKlines()
   let preparingOrders = [] // 准备下单的数据
   let profitableSymbol = positionIng.map(item => {
@@ -298,6 +298,29 @@ async function getPreparingOrders(equity, positionIng = []) {
   })
   let ingSymbols = positionIng.map(item => item.symbol)
   let data = weightSorting(primitiveData.filter((item) => signal(item, profitableSymbol)),ingSymbols) // 符合条件的下单
+  global.logger.info('有信号的标的', data.map(item => item.symbol))
+  data = data.slice(0, orderNumber < 1 ? 1 : orderNumber) //截取
+  function getTickSize(symbol) { // 获取精度
+    const symbolInfo = allExchange.find(item => item.symbol === symbol);
+    if (symbolInfo) {
+        const priceFilter = symbolInfo.filters.find(filter => filter.filterType === 'PRICE_FILTER')
+        return priceFilter ? priceFilter.tickSize : '0.0001'
+    }
+    return '0.0001'
+  }
+  function formatPriceByTickSize(price, tickSize) {
+    const tickSizeNum = parseFloat(tickSize)
+    const precision = getPricePrecisionFromTickSize(tickSize)
+    const adjustedPrice = Math.round(price / tickSizeNum) * tickSizeNum
+    return parseFloat(adjustedPrice.toFixed(precision))
+  }
+  function getPricePrecisionFromTickSize(tickSize) {
+    const tickSizeStr = tickSize.toString()
+    if (tickSizeStr.includes('.')) {
+        return tickSizeStr.split('.')[1].length
+    }
+    return 0
+  }
   for (let i in data) {
     // 符合下单条件
     let symbol = data[i].symbol
@@ -312,6 +335,7 @@ async function getPreparingOrders(equity, positionIng = []) {
     }
     let direction = data[i].highPrice > data[i].highestPoint ? 1 : -1
     let position = getPosition(data[i].ATR, data[i].currentPrice, equity, direction, data[i].pricePrecision, positionLeverage,ingSymbols.includes(data[i].symbol)?positionIngData:false)
+    position.stopPrice = formatPriceByTickSize(position.stopPrice, getTickSize(data[i].symbol))
     preparingOrders.push({
       ...position,
       amplitude: getAmplitude(data[i]),
