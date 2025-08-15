@@ -336,6 +336,7 @@ async function getPreparingOrders(equity, positionIng = [], allExchange, orderNu
     }
     let direction = data[i].highPrice > data[i].highestPoint ? 1 : -1
     let position = getPosition(data[i].ATR, data[i].currentPrice, equity, direction, data[i].pricePrecision, positionLeverage,ingSymbols.includes(data[i].symbol)?positionIngData:false)
+    global.logger.info('格式化stopPrice', data[i].symbol, position.stopPrice, formatPriceByTickSize(position.stopPrice, getTickSize(data[i].symbol)))
     preparingOrders.push({
       ...position,
       stopPrice: formatPriceByTickSize(position.stopPrice, getTickSize(data[i].symbol)),

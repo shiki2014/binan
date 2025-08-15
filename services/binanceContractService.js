@@ -127,7 +127,7 @@ async function contractOrder({ symbol, positionSide, quantity, stopPrice, levera
     global.errorLogger('下单失败:', error?.response?.data)
   })
   if (res) {
-    global.logger.info('下单成功', {symbol,quantity})
+    global.logger.info('下单成功', {symbol, quantity, stopPrice})
     await setStopPrice(symbol, positionSide, stopPrice)
   }
   return res
