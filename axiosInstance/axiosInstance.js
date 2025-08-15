@@ -4,6 +4,7 @@ const { SocksProxyAgent } = require('socks-proxy-agent')
 const { createHmac } = require('crypto')
 const { apiSecret } = require('../config/config')
 const JSONbig = require('json-bigint')
+const { SYSTEM_LIMITS, API_CONFIG } = require('../core/constants')
 require('dotenv').config();
 
 // 创建代理实例
@@ -119,33 +120,250 @@ function handleError(error) {
   return Promise.reject(error)
 }
 
-// 请求重试函数
-function createRetryInterceptor(axiosInstance) {
+// 智能重试函数
+function createSmartRetryInterceptor(axiosInstance) {
   axiosInstance.interceptors.response.use(
-    response => response,
-    async error => {
-      const config = error.config
-      // 如果是网络错误且未达到重试上限，进行重试
-      if (!config._retry && (error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT')) {
-        config._retry = true
-        config._retryCount = (config._retryCount || 0) + 1
-        if (config._retryCount <= 3) {
-          console.log(`网络错误，正在进行第${config._retryCount}次重试...`)
-          await new Promise(resolve => setTimeout(resolve, 1000 * config._retryCount))
-          return axiosInstance(config)
-        }
+    response => {
+      // 检查是否是重试成功的请求
+      if (response.config._retryCount && response.config._retryCount > 0) {
+        logRetrySuccess(response.config);
       }
-      return handleError(error)
+      return response;
+    },
+    async error => {
+      const config = error.config;
+      const retryConfig = API_CONFIG.RETRY;
+
+      // 初始化重试计数
+      if (!config._retryCount) {
+        config._retryCount = 0;
+      }
+
+      // 判断是否应该重试
+      const shouldRetry = shouldRetryRequest(error, config, retryConfig);
+
+      if (shouldRetry && config._retryCount < retryConfig.MAX_ATTEMPTS) {
+        config._retryCount += 1;
+
+        // 计算延迟时间
+        const delay = calculateRetryDelay(config._retryCount, error, retryConfig);
+
+        // 记录重试信息
+        logRetryAttempt(error, config._retryCount, delay);
+
+        // 等待后重试
+        await new Promise(resolve => setTimeout(resolve, delay));
+
+        return axiosInstance(config);
+      }
+
+      return handleError(error);
     }
-  )
+  );
 }
 
-// 设置拦截器
-spotsAxios.interceptors.request.use(setConfig)
-contractAxios.interceptors.request.use(setConfig)
+// 判断是否应该重试
+function shouldRetryRequest(error, config, retryConfig) {
+  // 网络错误
+  if (isNetworkError(error)) {
+    return true;
+  }
 
-createRetryInterceptor(spotsAxios)
-createRetryInterceptor(contractAxios)
+  // 代理相关错误
+  if (isProxyError(error)) {
+    return config._retryCount < retryConfig.PROXY_RETRY_ATTEMPTS;
+  }
+
+  // 服务器错误 (5xx)
+  if (error.response && error.response.status >= 500) {
+    return true;
+  }
+
+  // 限流错误 (429)
+  if (error.response && error.response.status === 429) {
+    return true;
+  }
+
+  // 超时错误
+  if (error.code === 'ECONNABORTED') {
+    return true;
+  }
+
+  return false;
+}
+
+// 判断网络错误
+function isNetworkError(error) {
+  const networkErrorCodes = [
+    'ECONNRESET',
+    'ETIMEDOUT',
+    'ECONNREFUSED',
+    'EHOSTUNREACH',
+    'ENETUNREACH',
+    'EAI_AGAIN'
+  ];
+
+  return networkErrorCodes.includes(error.code) || !error.response;
+}
+
+// 判断代理错误
+function isProxyError(error) {
+  const proxyErrorIndicators = [
+    'ECONNRESET',
+    'EHOSTUNREACH',
+    'ENETUNREACH',
+    'socket hang up',
+    'getaddrinfo ENOTFOUND',
+    'socks'
+  ];
+
+  const errorMessage = error.message?.toLowerCase() || '';
+
+  return proxyErrorIndicators.some(indicator =>
+    error.code === indicator || errorMessage.includes(indicator)
+  );
+}
+
+// 计算重试延迟
+function calculateRetryDelay(retryCount, error, retryConfig) {
+  let baseDelay = retryConfig.INITIAL_DELAY;
+
+  // 代理错误使用特殊延迟
+  if (isProxyError(error)) {
+    baseDelay = retryConfig.PROXY_RETRY_DELAY;
+  }
+
+  // 限流错误使用更长延迟
+  if (error.response?.status === 429) {
+    baseDelay = 5000; // 5秒
+  }
+
+  // 指数退避算法
+  const delay = baseDelay * Math.pow(retryConfig.BACKOFF_FACTOR, retryCount - 1);
+
+  // 添加随机抖动，避免惊群效应
+  const jitter = Math.random() * 0.3 * delay;
+
+  // 限制最大延迟
+  return Math.min(delay + jitter, retryConfig.MAX_DELAY);
+}
+
+// 记录重试信息
+function logRetryAttempt(error, retryCount, delay) {
+  const errorType = getErrorType(error);
+  const message = `${errorType} - 第${retryCount}次重试, 延迟${Math.round(delay)}ms`;
+
+  if (global.logger) {
+    global.logger.warn(message, {
+      url: error.config?.url,
+      method: error.config?.method,
+      status: error.response?.status,
+      code: error.code
+    });
+  } else {
+    console.warn(`[重试] ${message}`, {
+      url: error.config?.url,
+      method: error.config?.method,
+      status: error.response?.status,
+      code: error.code
+    });
+  }
+}
+
+// 记录重试成功信息
+function logRetrySuccess(config) {
+  const message = `✅ 重试成功! 总计重试${config._retryCount}次后成功`;
+
+  if (global.logger) {
+    global.logger.info(message, {
+      url: config.url,
+      method: config.method,
+      retryCount: config._retryCount
+    });
+  } else {
+    console.log(`[重试成功] ${message}`, {
+      url: config.url,
+      method: config.method,
+      retryCount: config._retryCount
+    });
+  }
+}
+
+// 获取错误类型描述
+function getErrorType(error) {
+  if (isProxyError(error)) return '代理错误';
+  if (isNetworkError(error)) return '网络错误';
+  if (error.response?.status === 429) return '限流错误';
+  if (error.response?.status >= 500) return '服务器错误';
+  if (error.code === 'ECONNABORTED') return '超时错误';
+  return '未知错误';
+}
+
+// 队列拦截器：使用请求拦截器实现队列控制
+function createImprovedQueueInterceptor(axiosInstance) {
+  // 使用静态变量或全局变量来确保多实例间的协调
+  if (!global.apiRequestQueue) {
+    global.apiRequestQueue = {
+      lastRequestTime: 0,
+      pendingRequests: [],
+      processing: false
+    };
+  }
+
+  const queue = global.apiRequestQueue;
+  const requestInterval = SYSTEM_LIMITS.API_LIMITS.KLINE_REQUEST_INTERVAL;
+
+  axiosInstance.interceptors.request.use(async (config) => {
+    return new Promise((resolve, reject) => {
+      // 将请求加入队列
+      queue.pendingRequests.push({ config, resolve, reject });
+
+      // 处理队列
+      processQueue();
+    });
+  });
+
+  async function processQueue() {
+    if (queue.processing || queue.pendingRequests.length === 0) {
+      return;
+    }
+
+    queue.processing = true;
+
+    while (queue.pendingRequests.length > 0) {
+      const { config, resolve, reject } = queue.pendingRequests.shift();
+      try {
+        // 计算需要等待的时间
+        const now = Date.now();
+        const timeSinceLastRequest = now - queue.lastRequestTime;
+
+        if (timeSinceLastRequest < requestInterval) {
+          const waitTime = requestInterval - timeSinceLastRequest;
+          await new Promise(r => setTimeout(r, waitTime));
+        }
+        // 处理配置
+        const processedConfig = await setConfig(config);
+        // 更新时间
+        queue.lastRequestTime = Date.now();
+        resolve(processedConfig);
+      } catch (error) {
+        reject(error);
+      }
+    }
+
+    queue.processing = false;
+  }
+
+  return axiosInstance;
+}
+
+// 应用队列拦截器
+createImprovedQueueInterceptor(spotsAxios);
+createImprovedQueueInterceptor(contractAxios);
+
+// 最后设置响应拦截器（智能重试等）
+createSmartRetryInterceptor(spotsAxios)
+createSmartRetryInterceptor(contractAxios)
 
 // 健康检查函数
 async function healthCheck() {

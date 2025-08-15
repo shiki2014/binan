@@ -1,0 +1,158 @@
+基于我们之前的分析和已完成的工作，这里是完整的模块化重构清单：
+
+  模块化重构清单
+
+  ✅ 已完成
+
+  1. utils/precisionUtils.js - 精度处理工具模块
+  2. core/constants.js - 系统核心常量配置
+
+  📋 待改造清单
+
+  第一阶段：基础工具模块
+
+  utils/
+  ├── mathUtils.js         ✅ (已存在，需增强)
+  ├── precisionUtils.js    ✅ (已完成)
+  ├── timeUtils.js         🔄 (待创建)
+  ├── validationUtils.js   🔄 (待创建)
+  └── formatUtils.js       🔄 (待创建)
+
+  具体任务：
+  - 🔄 增强 utils/mathUtils.js
+    - 迁移 ATR 计算函数
+    - 添加统计计算工具
+    - 添加数值处理工具
+  - 🔄 创建 utils/timeUtils.js
+    - 时间格式化函数
+    - 时区处理函数
+    - 定时任务工具
+  - 🔄 创建 utils/validationUtils.js
+    - 数据验证函数
+    - 参数校验工具
+    - 类型检查工具
+  - 🔄 创建 utils/formatUtils.js
+    - 数据格式化工具
+    - 日志格式化
+    - 消息模板处理
+
+  第二阶段：数据管理模块
+
+  data/
+  ├── dataManager.js       🔄 (待创建)
+  ├── fileStorage.js       🔄 (待创建)
+  ├── cacheStorage.js      🔄 (待创建)
+  └── models/              🔄 (待创建目录)
+      ├── position.js      🔄 (待创建)
+      ├── symbol.js        🔄 (待创建)
+      └── marketData.js    🔄 (待创建)
+
+  具体任务：
+  - 🔄 创建 data/dataManager.js
+    - 统一数据访问接口
+    - 数据缓存管理
+    - 数据持久化
+  - 🔄 创建 data/fileStorage.js
+    - 文件读写封装
+    - JSON 数据处理
+    - 文件安全操作
+  - 🔄 创建数据模型
+    - 标准化数据结构
+    - 数据验证
+    - 数据转换
+
+  第三阶段：策略模块
+
+  strategies/
+  ├── base/
+  │   ├── BaseStrategy.js      🔄 (待创建)
+  │   └── StrategyConfig.js    🔄 (待创建)
+  ├── stopLoss/
+  │   ├── ATRStopLoss.js       🔄 (待创建)
+  │   ├── TrailingStopLoss.js  🔄 (待创建)
+  │   └── HighLowStopLoss.js   🔄 (待创建)
+  ├── entry/
+  │   ├── SignalEntry.js       🔄 (待创建)
+  │   └── TrendEntry.js        🔄 (待创建)
+  └── riskManagement/
+      ├── PositionSizing.js    🔄 (待创建)
+      └── RiskCalculator.js    🔄 (待创建)
+
+  具体任务：
+  - 🔄 重构现有止损逻辑
+    - 从 priceTrackingController.js 提取策略
+    - 创建策略基类
+    - 实现可配置策略
+
+  第四阶段：监控系统
+
+  monitors/
+  ├── BaseMonitor.js       🔄 (待创建)
+  ├── PositionMonitor.js   🔄 (待创建)
+  ├── PriceMonitor.js      🔄 (待创建)
+  ├── RiskMonitor.js       🔄 (待创建)
+  └── PerformanceMonitor.js 🔄 (待创建)
+
+  具体任务：
+  - 🔄 重构监控系统
+    - 从 priceTrackingController.js 提取监控逻辑
+    - 创建监控基类
+    - 实现插件式监控器
+
+  第五阶段：控制器重构
+
+  controllers/
+  ├── strategyController.js    🔄 (待创建)
+  ├── monitorController.js     🔄 (待重构)
+  ├── orderController.js       🔄 (待重构)
+  └── riskController.js        🔄 (待创建)
+
+  具体任务：
+  - 🔄 重构现有控制器
+    - calculatePositionsController.js → 拆分功能
+    - priceTrackingController.js → 简化职责
+    - timingController.js → 模块化调度
+
+  第六阶段：核心模块
+
+  core/
+  ├── constants.js         ✅ (已完成)
+  ├── logger.js            🔄 (待创建)
+  ├── cache.js             🔄 (待创建)
+  └── eventBus.js          🔄 (待创建)
+
+  具体任务：
+  - 🔄 创建核心支撑模块
+    - 日志管理模块
+    - 缓存管理模块
+    - 事件总线模块
+
+  优先级建议
+
+  高优先级（立即开始）
+
+  1. 增强 utils/mathUtils.js - 迁移 ATR 计算
+  2. 创建 data/dataManager.js - 统一数据管理
+  3. 创建 core/logger.js - 标准化日志
+
+  中优先级（短期计划）
+
+  1. 创建基础工具模块 - timeUtils, validationUtils
+  2. 重构监控系统 - 提取监控逻辑
+  3. 创建策略基类 - 为策略扩展做准备
+
+  低优先级（长期规划）
+
+  1. 完整策略模块 - 实现所有策略类型
+  2. 事件驱动架构 - eventBus 和异步处理
+  3. 插件系统 - 支持动态加载
+
+  重构原则
+
+  1. 渐进式重构 - 保持系统稳定运行
+  2. 向后兼容 - 现有接口不破坏
+  3. 单一职责 - 每个模块专注单一功能
+  4. 可测试性 - 便于单元测试
+  5. 可配置性 - 支持灵活配置
+
+  您想从哪个模块开始继续重构？我建议下一步先增强 utils/mathUtils.js，将 ATR 相关计算迁移过来。

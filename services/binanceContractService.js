@@ -34,7 +34,7 @@ async function getKlines(symbol, limit) {
       interval: '1d'
     }
   }).catch(error => {
-    global.errorLogger('请求失败:', error)
+    global.errorLogger('K线请求失败:', error?.response?.data || error)
   })
   return res
 }

@@ -253,8 +253,8 @@ async function order (){
     return resultArray;
   }
   function getNum(num,yNum){
-    let z = global.util.getPrecision(yNum)
-    return global.util.truncateDecimal(num,z)
+    let z = global.utils.getPrecision(yNum)
+    return global.utils.truncateDecimal(num,z)
   }
   // 获取下单数量
   function getQuantity (item, num) {
@@ -528,7 +528,7 @@ async function initData () {
 
 module.exports = async function () {
   global.logger.info('定时交易策略开始')
-  // start()
+  // test()
   initData()
   schedule.scheduleJob('4 0 7 * * *',async function () {
     // 更新合约交易

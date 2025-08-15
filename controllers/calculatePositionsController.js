@@ -1,5 +1,6 @@
 // 计算仓位控制器
 const { getKlines } = require('../services/binanceContractService');
+const { getATRCompute } = require('../utils/mathUtils');
 const fs = require('fs');
 const breakthroughCoefficient = 20 // 突破系数
 // const bc = 20 // 突破系数
@@ -335,9 +336,9 @@ async function getPreparingOrders(equity, positionIng = [], allExchange, orderNu
     }
     let direction = data[i].highPrice > data[i].highestPoint ? 1 : -1
     let position = getPosition(data[i].ATR, data[i].currentPrice, equity, direction, data[i].pricePrecision, positionLeverage,ingSymbols.includes(data[i].symbol)?positionIngData:false)
-    position.stopPrice = formatPriceByTickSize(position.stopPrice, getTickSize(data[i].symbol))
     preparingOrders.push({
       ...position,
+      stopPrice: formatPriceByTickSize(position.stopPrice, getTickSize(data[i].symbol)),
       amplitude: getAmplitude(data[i]),
       ATR: data[i].ATR,
       inWhiteList: data[i].inWhiteList,
@@ -457,52 +458,6 @@ function trendOscillationCompute(klines) {
   return goldenCrossCount + deathCrossCount
 }
 
-// 根据周期计算ATR
-function getATRCompute(data, cycle) {
-  function SMA(source, length) {
-    let sum = 0.0
-    for (let i = 0; i < length; ++i) {
-      sum += source[i] / length
-    }
-    return sum
-  }
-  function RMA(trs, cycle) {
-    function _zeros(len) {
-      let n = [];
-      for (let i = 0; i < len; i++) {
-        n.push(0.0);
-      }
-      return n;
-    }
-    function round6(x) {
-      return Math.round(x * 1000000) / 1000000
-    }
-    let rmas = _zeros(trs.length)
-    let alpha = 1 / cycle;
-    for (let i in trs) {
-      if (i < cycle) {
-        rmas[i] = 0
-      } else {
-        if (rmas[i - 1]) {
-          rmas[i] = round6((trs[i - 1] + (cycle - 1) * rmas[i - 1]) / cycle)
-        } else {
-          rmas[i] = round6(SMA(trs.slice(i - cycle, i), cycle))
-        }
-      }
-    }
-    return rmas[rmas.length - 1]
-  }
-  let trArray = []
-  for (let i = 0; i < data.length; i++) {
-    if (i) {
-      let tr = Math.max(data[i].high - data[i].low, Math.abs(data[i].high - data[i - 1].close), Math.abs(data[i].low - data[i - 1].close))
-      trArray.push(tr)
-    } else {
-      trArray.push(data[i].high - data[i].low)
-    }
-  }
-  return RMA(trArray, cycle)
-}
 
 // 仓位管理-ATR均衡 风险管理函数
 function getPosition(atr, price, equity, direction, pricePrecision, leverageIng, positionIngData) {
@@ -601,5 +556,5 @@ module.exports = {
   getOneVol,
   getATR,
   getAverageAmplitude,
-  getOneATR
+  getOneATR,
 }
