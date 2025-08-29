@@ -276,7 +276,8 @@ async function order (){
     if (quantity > maxQty){
       quantity = maxQty
     }
-    return quantity
+    global.logger.info(item.symbol,'下单处理的数量', quantity, getNum(quantity, parseFloat(item.quantity)))
+    return getNum(quantity, parseFloat(item.quantity))
   }
   let generatedArray = generateArray(orderList.length);
   async function setOrder(item, callback, num){
