@@ -35,7 +35,6 @@ async function getUserData() {
   }).catch(error => {
 		global.errorLogger('请求失败:', error)
 	})
-  console.log(res.data)
   return res.data
 }
 

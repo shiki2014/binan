@@ -1,19 +1,24 @@
-require('dotenv').config();
-const apiDomain = 'https://api.binance.com';
-const apiDomain1 = 'https://api1.binance.com';
-const apiDomain2 = 'https://api2.binance.com';
-const apiDomain3 = 'https://api3.binance.com';
-const apiDomain4 = 'https://api4.binance.com';
-const apiDomainContract = 'https://fapi.binance.com';
-const apiSocks = process.env.API_SOCKS || 'socks://127.0.0.1:10808'
-const apiKey = process.env.API_KEY || ''
-const apiSecret = process.env.API_SECRET || ''
-const cycle = '1d'
-function getTimezoneOffset () {
-  let date = new Date()
-  return date.getTimezoneOffset()
+// 为了向后兼容，保持原有导出，但现在从常量模块获取配置
+const { API_CONFIG, TRADING_CONFIG, TIMEZONE_CONFIG } = require('../core/constants');
+
+// 向后兼容的导出
+const apiDomain = API_CONFIG.SPOT_DOMAINS.PRIMARY;
+const apiDomain1 = API_CONFIG.SPOT_DOMAINS.BACKUP_1;
+const apiDomain2 = API_CONFIG.SPOT_DOMAINS.BACKUP_2;
+const apiDomain3 = API_CONFIG.SPOT_DOMAINS.BACKUP_3;
+const apiDomain4 = API_CONFIG.SPOT_DOMAINS.BACKUP_4;
+const apiDomainContract = API_CONFIG.CONTRACT_DOMAIN;
+const apiSocks = API_CONFIG.SOCKS_PROXY;
+const apiKey = API_CONFIG.API_KEY;
+const apiSecret = API_CONFIG.API_SECRET;
+const cycle = TRADING_CONFIG.KLINE_INTERVAL;
+const timezoneOffset = TIMEZONE_CONFIG.DEFAULT_OFFSET;
+
+// 向后兼容的函数
+function getTimezoneOffset() {
+  return TIMEZONE_CONFIG.getTimezoneOffset();
 }
-const timezoneOffset = getTimezoneOffset()
+
 module.exports = {
   apiDomain,
   apiDomain1,
@@ -25,5 +30,6 @@ module.exports = {
   apiKey,
   cycle,
   timezoneOffset,
-  apiSecret
+  apiSecret,
+  getTimezoneOffset
 };

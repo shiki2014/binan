@@ -1,28 +1,18 @@
-require('dotenv').config();
 const express = require('express')
 const apiRoutes = require('./routes/apiRoutes')
 const path = require('path')
+const { APP_CONFIG } = require('./core/constants')
 const app = express()
-const port = process.env.NODE_ENV === 'development' ? 3000 : 80
+const port = process.env.NODE_ENV === 'development' ? APP_CONFIG.PORT.DEVELOPMENT : APP_CONFIG.PORT.PRODUCTION
 const timing = require('./controllers/timingController')
 const tracking = require('./controllers/priceTrackingController')
 const test =  require('./test/test')
 const log4js = require('log4js')
-const util = require('./util/util')
+const util = require('./utils/util')
 
-global.util = util
+global.utils = util
 
-log4js.configure({
-  appenders: {
-    console: { type: 'console' },
-    appFile: { type: 'file', filename: 'logs/app.log' },
-    errorFile: { type: 'file', filename: 'logs/error.log' }
-  },
-  categories: {
-    error: { appenders: ['errorFile', 'console'], level: 'error' },
-    default: { appenders: ['console', 'appFile'], level: 'debug' }
-  }
-});
+log4js.configure(APP_CONFIG.LOG_CONFIG);
 
 const logger = log4js.getLogger();
 const errorLogger = log4js.getLogger('error');

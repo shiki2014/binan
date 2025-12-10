@@ -34,7 +34,7 @@ async function getKlines(symbol, limit) {
       interval: '1d'
     }
   }).catch(error => {
-    global.errorLogger('请求失败:', error)
+    global.errorLogger('K线请求失败:', error?.response?.data || error)
   })
   return res
 }
@@ -127,7 +127,7 @@ async function contractOrder({ symbol, positionSide, quantity, stopPrice, levera
     global.errorLogger('下单失败:', error?.response?.data)
   })
   if (res) {
-    global.logger.info('下单成功', {symbol,quantity})
+    global.logger.info('下单成功', {symbol, quantity, stopPrice})
     await setStopPrice(symbol, positionSide, stopPrice)
   }
   return res

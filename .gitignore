@@ -1,8 +1,9 @@
 .vscode
+.claude
+.codegpt
 node_modules
 .env
 package-lock.json
 logs
 .vercel
 data/
-.codegpt
