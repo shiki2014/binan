@@ -128,7 +128,30 @@ async function contractOrder({ symbol, positionSide, quantity, stopPrice, levera
   })
   if (res) {
     global.logger.info('下单成功', {symbol, quantity, stopPrice})
+    await deleteSetStopPrice(symbol)
     await setStopPrice(symbol, positionSide, stopPrice)
+  }
+  return res
+}
+
+// 删除全部条件单
+async function deleteSetStopPrice(symbol) {
+  console.log('删除全部条件单', symbol)
+  if (process.env.NODE_ENV === 'development'){
+    return {}
+  }
+  const res = await contractAxios({
+    method: 'delete',
+    url: '/fapi/v1/algoOpenOrders',
+    params: {
+      symbol,
+      timestamp: new Date().getTime()
+    }
+  }).catch(error => {
+    global.errorLogger('请求失败:', error?.response?.data)
+  })
+  if (res) {
+    global.logger.info('删除全部条件单成功', {symbol})
   }
   return res
 }
@@ -140,15 +163,16 @@ async function setStopPrice(symbol, positionSide, stopPrice) {
   }
   const res = await contractAxios({
     method: 'post',
-    url: '/fapi/v1/order',
+    url: '/fapi/v1/algoOrder',
     data: {
+      algoType: 'CONDITIONAL',
       symbol,
       positionSide,
       side: positionSide == 'LONG' ? 'SELL' : 'BUY',
       type: 'STOP_MARKET',
       closePosition: true,
       timestamp: new Date().getTime(),
-      stopPrice
+      triggerPrice: stopPrice
     }
   }).catch(error => {
     global.errorLogger('请求失败:', error?.response?.data)
@@ -164,6 +188,19 @@ async function getOpenOrders(symbol) {
   const res = await contractAxios({
     method: 'get',
     url: '/fapi/v1/openOrders',
+    params: {
+      timestamp: new Date().getTime()
+    }
+  }).catch(error => {
+    global.errorLogger('请求失败:', error?.response?.data)
+  })
+  return res && res.data
+}
+// 获取全部条件单
+async function getOpenAlgoOrders(symbol) {
+  const res = await contractAxios({
+    method: 'get',
+    url: '/fapi/v1/openAlgoOrders',
     params: {
       timestamp: new Date().getTime()
     }
@@ -197,6 +234,22 @@ async function deleteOrder(symbol, orderId) {
     params: {
       symbol,
       orderId,
+      timestamp: new Date().getTime()
+    }
+  }).catch(error => {
+    console.log(error)
+    global.errorLogger('请求失败:', error?.response?.data)
+  })
+  return res && res.data
+}
+// 删除订单接口
+async function deleteAlgoOrder(symbol, algoid) {
+  const res = await contractAxios({
+    method: 'delete',
+    url: '/fapi/v1/algoOrder',
+    params: {
+      symbol,
+      algoid,
       timestamp: new Date().getTime()
     }
   }).catch(error => {
@@ -288,6 +341,7 @@ module.exports = {
   getServiceTime,
   getKlines,
   setStopPrice,
+  deleteSetStopPrice,
   setLeverage,
   setMarginType,
   contractOrder,
@@ -297,9 +351,11 @@ module.exports = {
   getExchangeInfo,
   putListenKey,
   deleteOrder,
+  deleteAlgoOrder,
   getOrderAmendment,
   getUserTrades,
   getOneOpenOrders,
   getOpenOrders,
+  getOpenAlgoOrders,
   getListenKey
 };

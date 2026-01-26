@@ -1,6 +1,6 @@
 // 定时控制器
 const schedule = require('node-schedule');
-const { getExchangeInfo, contractOrder, getAccountData, getServiceTime, getKlines, setStopPrice, getOneOpenOrders, getOpenOrders, deleteOrder } = require('../services/binanceContractService');
+const { getExchangeInfo, contractOrder, getAccountData, getServiceTime, getKlines, setStopPrice, deleteSetStopPrice, getOneOpenOrders, getOpenOrders, getOpenAlgoOrders, deleteOrder, deleteAlgoOrder } = require('../services/binanceContractService');
 const { exec } = require('child_process');
 const iconv = require('iconv-lite')
 const fs = require('fs');
@@ -365,6 +365,9 @@ async function setTakeProfit () {
   function signal (item){
     // 做多如果10天最低点高于止损位置，止损位置上移
     // 做空如果10天最高点低于止损位置，止损位置下移
+    if (!getOneOrder(item.symbol) || !getOneOrder(item.symbol).stopPrice){
+      return false
+    }
     if (item.positionSide == 'SHORT'){
       return item.highestPoint < Number(getOneOrder(item.symbol).stopPrice)
     }
@@ -386,6 +389,7 @@ async function setTakeProfit () {
       takeProfitList.push(data)
       let stopPrice = data.positionSide == 'SHORT' ? data.highestPoint : data.lowestPoint
       let formattedStopPrice = formatPriceByTickSize(stopPrice, getTickSize(data.symbol));
+      await deleteSetStopPrice(data.symbol)
       await setStopPrice(data.symbol, data.positionSide, formattedStopPrice)
       if (data.positionSide == 'SHORT'){
         global.logger.info(data.highestPoint < Number(data.entryPrice) ? `${data.symbol}设置止盈成功` : `${data.symbol}设置止损移动成功`)
@@ -461,9 +465,11 @@ async function start () {
 
 // 删除已经无用的委托
 async function deleteAllInvalidOrders(isDeL){
-  let orders = await getOpenOrders()
+  let orders1 = await getOpenOrders()
+  let orders2 = await getOpenAlgoOrders()
+  let orders = orders1.concat(orders2)
   orders = orders.map(function(item){
-    item.orderId = item.orderId.toString()
+    item.orderId = (item.orderId || item.algoId).toString()
     return item
   })
   let position = await getAccountPosition()
@@ -474,7 +480,7 @@ async function deleteAllInvalidOrders(isDeL){
   // 最开始的删除策略
   for (let i in symbols) {
     let lData = orders.filter(item => (item.symbol+item.positionSide) === symbols[i]).sort((a,b) =>{
-      return b.time - a.time
+      return (b.time || b.updateTime) - (a.time || a.updateTime)
     })
     obj[symbols[i]] = lData
     for(let i2 in lData){
@@ -495,7 +501,11 @@ async function deleteAllInvalidOrders(isDeL){
   if (invalidOrders.length > 0){
     global.logger.info('开始删除无效订单')
     for (let i in invalidOrders){
-      await deleteOrder(invalidOrders[i].symbol, invalidOrders[i].orderId)
+      if (invalidOrders[i].algoId){
+        await deleteAlgoOrder(invalidOrders[i].symbol, invalidOrders[i].orderId)
+      } else {
+        await deleteOrder(invalidOrders[i].symbol, invalidOrders[i].orderId)
+      }
       global.logger.info('撤销挂单完成',invalidOrders[i].symbol,invalidOrders[i].orderId,invalidOrders[i].stopPrice)
     }
   } else {
