@@ -222,7 +222,7 @@ async function order (){
   let equityAmount = await getEquityAmount()
   let allExchange = await getAllExchangeInfo()
   let tradingExchangeNum = allExchange.filter(symbol => symbol.status === 'TRADING').length // 可交易的合约的数量
-  let orderNumber = parseInt(tradingExchangeNum/16 * (1 - equityAmount.withdrawalAmplitude )) // 最多下单数量
+  let orderNumber = parseInt(tradingExchangeNum/24 * (1 - equityAmount.withdrawalAmplitude )) // 最多下单数量
   let orderList = await getPreparingOrders(equityAmount.num, position, allExchange, orderNumber)
   if (orderList.length == 0){
     global.logger.info('没有符合条件的标的')
