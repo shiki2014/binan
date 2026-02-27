@@ -89,15 +89,57 @@ function setConfig(config) {
 }
 
 // 错误处理函数
+function isSensitiveKey(key = '') {
+  const normalized = String(key).toLowerCase()
+  return [
+    'signature',
+    'secret',
+    'apikey',
+    'api_key',
+    'token',
+    'authorization',
+    'x-mbx-apikey'
+  ].some(sensitive => normalized.includes(sensitive))
+}
+
+function sanitizeStringForLog(value) {
+  if (typeof value !== 'string') return value
+  return value
+    .replace(/(signature=)[^&\s]+/ig, '$1***')
+    .replace(/(api[_-]?key=)[^&\s]+/ig, '$1***')
+    .replace(/(token=)[^&\s]+/ig, '$1***')
+    .replace(/(secret=)[^&\s]+/ig, '$1***')
+}
+
+function sanitizeForLog(value, depth = 0) {
+  if (depth > 6) return '[Truncated]'
+  if (value === null || value === undefined) return value
+  if (typeof value === 'string') return sanitizeStringForLog(value)
+  if (typeof value !== 'object') return value
+  if (Array.isArray(value)) return value.map(item => sanitizeForLog(item, depth + 1))
+
+  const output = {}
+  for (const [key, val] of Object.entries(value)) {
+    if (isSensitiveKey(key)) {
+      output[key] = '***'
+      continue
+    }
+    output[key] = sanitizeForLog(val, depth + 1)
+  }
+  return output
+}
+
 function handleError(error) {
+  const safeParams = sanitizeForLog(error.config?.params || error.config?.data)
+  const safeResponseData = sanitizeForLog(error.response?.data)
   const errorInfo = {
     method: error.config?.method,
     url: error.config?.url,
-    params: error.config?.params || error.config?.data,
+    params: safeParams,
     status: error.response?.status,
     statusText: error.response?.statusText,
     message: error.message,
-    responseData: error.response?.data
+    responseData: safeResponseData
   }
   // 记录详细错误信息
   console.error('API请求错误:', JSON.stringify(errorInfo, null, 2))
@@ -113,9 +155,9 @@ function handleError(error) {
   if (global.errorLogger) {
     global.errorLogger(`请求类型: ${errorInfo.method}`)
     global.errorLogger(`请求路径: ${errorInfo.url}`)
-    global.errorLogger(`请求参数: ${JSON.stringify(errorInfo.params)}`)
+    global.errorLogger(`请求参数: ${JSON.stringify(safeParams)}`)
     global.errorLogger(`错误信息: ${errorInfo.message}`)
-    global.errorLogger(`响应数据: ${JSON.stringify(errorInfo.responseData)}`)
+    global.errorLogger(`响应数据: ${JSON.stringify(safeResponseData)}`)
   }
   return Promise.reject(error)
 }

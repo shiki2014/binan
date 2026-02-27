@@ -3,6 +3,7 @@ const fs = require('fs');
 
 async function getAccountPosition() {
   let res = await getAccountData()
+  if (!res || !Array.isArray(res.positions)) return []
   let allPositions = res.positions
   return allPositions.filter((item)=>{
     return Math.abs(item.positionAmt) > 0
@@ -23,7 +24,8 @@ async function getErrorLog (req, res) {
   fs.readFile('./logs/error.log', (err, data) => {
     if (err) {
       global.errorLogger(err)
-      process.exit(1)
+      res.status(500).send('读取错误日志失败')
+      return
     }
     res.send(data.toString())
   });
@@ -33,7 +35,8 @@ async function getAppLog (req, res) {
   fs.readFile('./logs/app.log', (err, data) => {
     if (err) {
       global.errorLogger(err)
-      process.exit(1)
+      res.status(500).send('读取应用日志失败')
+      return
     }
     res.send(data.toString())
   });

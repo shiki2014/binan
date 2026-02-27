@@ -38,6 +38,18 @@ API_SOCKS='socks://127.0.0.1:7890'
 API_SOCKS_OPEN='0'
 # 是否在本地环境，如果是本地调试则使用3000端口，其他使用80端口 development 为本地环境 其他为生产环境
 NODE_ENV='development'
+# 交易模式：paper(默认，模拟) / live(实盘)
+TRADING_MODE='paper'
+# 远程访问 API 的鉴权令牌（可选）
+API_TOKEN='change-this-token'
+# 当未配置 API_TOKEN 时，是否允许仅本机访问 API，默认 1
+ALLOW_LOCAL_API_WITHOUT_TOKEN='1'
+# 是否启用系统时间自动同步（默认 0，不修改系统时间）
+ENABLE_SYSTEM_TIME_SYNC='0'
+# 最小下单名义价值兜底（USDT），默认 5
+MIN_ORDER_NOTIONAL='5'
+# 止损触发价与当前价的最小缓冲比例，默认 0.001（0.1%）
+STOP_TRIGGER_BUFFER='0.001'
 ```
 
 ### 安装

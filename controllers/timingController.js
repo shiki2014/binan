@@ -1,6 +1,6 @@
 // 定时控制器
 const schedule = require('node-schedule');
-const { getExchangeInfo, contractOrder, getAccountData, getServiceTime, getKlines, setStopPrice, deleteSetStopPrice, getOneOpenOrders, getOpenOrders, getOpenAlgoOrders, deleteOrder, deleteAlgoOrder } = require('../services/binanceContractService');
+const { getExchangeInfo, contractOrder, getAccountData, getServiceTime, getKlines, setStopPrice, getOneOpenOrders, getOpenOrders, getOpenAlgoOrders, deleteOrder, deleteAlgoOrder } = require('../services/binanceContractService');
 const { exec } = require('child_process');
 const iconv = require('iconv-lite')
 const fs = require('fs');
@@ -13,7 +13,7 @@ function readFile(url){
       if (err) {
         reject(err);
         global.errorLogger(err)
-        process.exit(1)
+        return
       }
       resolve(data.toString())
     })
@@ -27,7 +27,7 @@ function writeFile(url,jsonString){
       if (err) {
         reject(err);
         global.errorLogger(err)
-        process.exit(1)
+        return
       }
       resolve(true)
     });
@@ -46,19 +46,31 @@ async function updateTime() {
   let timestamp = time.data.serverTime
   const dateObj = new Date(timestamp);
   const dateObj2 = new Date()
+  const driftMs = timestamp - Date.now()
   console.log("本地时间2:",dateObj2.toLocaleString())
   console.log("币安服务器时间同步:", dateObj.toLocaleString());
+
+  if (process.env.ENABLE_SYSTEM_TIME_SYNC !== '1') {
+    global.logger.info(`检测到服务器时间偏差: ${driftMs}ms，未启用系统时间同步`)
+    return { driftMs, synced: false }
+  }
+
+  if (process.platform !== 'win32') {
+    global.logger.warn(`当前系统(${process.platform})不执行自动校时，请手动同步系统时间。偏差: ${driftMs}ms`)
+    return { driftMs, synced: false }
+  }
+
   const command = `set-date -Date '${(new Date(timestamp + 2000)).toLocaleString()}'`
   async function execTime (command) {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       exec(command, {'shell':'powershell.exe', encoding: 'buffer'}, (error, stdout, stderr) => {
         if (error) {
           global.errorLogger(`exec error: ${error}`)
-          reject()
+          resolve({ driftMs, synced: false, error: String(error) })
           return
         }
         console.log(`同步完成`);
-        resolve({ stdout: iconv.decode(stdout, 'cp936')})
+        resolve({ stdout: iconv.decode(stdout, 'cp936'), driftMs, synced: true })
       });
     })
   }
@@ -76,7 +88,6 @@ async function updateAllATR(callback) {
     fs.writeFile(url, JSON.stringify(obj), (err) => {
       if (err) {
         global.errorLogger(err)
-        process.exit(1)
         return false
       }
       callback && callback(true)
@@ -124,7 +135,6 @@ function setBlackList (VolatilityObject) {
   fs.writeFile('./data/blackList.json', JSON.stringify(blockList), (err) => {
     if (err) {
       global.errorLogger(err)
-      process.exit(1)
       return false
     }
     global.logger.info('设置黑名单成功')
@@ -258,15 +268,37 @@ async function order (){
   }
   // 获取下单数量
   function getQuantity (item, num) {
+    const closePrice = Number(item.closePrice)
+    if (!Number.isFinite(closePrice) || closePrice <= 0) {
+      global.errorLogger(item.symbol, '价格异常，跳过下单')
+      return 0
+    }
     let quantity = getNum(parseFloat(item.quantity) * num, parseFloat(item.quantity))
     let minQuantity = 0
     let minQty = parseFloat(item.minQty)
     let maxQty = parseFloat(item.maxQty)
     let stepSize = parseFloat(item.stepSize)
     let notional = parseFloat(item.notional)
-    let closePrice = item.closePrice
-    if (minQty *  closePrice <= notional){
-      minQuantity = Math.ceil(notional/(stepSize * closePrice)) * stepSize // 需要多少个进步值才可以大于最小名义价值
+    const minOrderNotional = Number(process.env.MIN_ORDER_NOTIONAL || 5)
+
+    if (!Number.isFinite(minQty) || minQty <= 0) {
+      minQty = 0
+    }
+    if (!Number.isFinite(maxQty) || maxQty <= 0) {
+      maxQty = Number.MAX_SAFE_INTEGER
+    }
+    if (!Number.isFinite(stepSize) || stepSize <= 0) {
+      const quantityPrecision = Number(item.quantityPrecision || 3)
+      stepSize = 1 / Math.pow(10, quantityPrecision)
+    }
+    if (!Number.isFinite(notional) || notional <= 0) {
+      notional = minOrderNotional
+    } else {
+      notional = Math.max(notional, minOrderNotional)
+    }
+
+    if (minQty * closePrice <= notional){
+      minQuantity = Math.ceil(notional / (stepSize * closePrice)) * stepSize // 需要多少个进步值才可以大于最小名义价值
     } else{
       minQuantity = minQty
     }
@@ -275,6 +307,13 @@ async function order (){
     }
     if (quantity > maxQty){
       quantity = maxQty
+    }
+    if (quantity * closePrice < notional) {
+      quantity = Math.ceil(notional / (stepSize * closePrice)) * stepSize
+    }
+    if (quantity > maxQty) {
+      global.logger.info(item.symbol, `最小名义价值要求(${notional})超过最大下单数量，跳过`)
+      return 0
     }
     global.logger.info(item.symbol,'下单处理的数量', quantity, getNum(quantity, parseFloat(item.quantity)))
     return getNum(quantity, parseFloat(item.quantity))
@@ -327,10 +366,14 @@ async function order (){
 // 对所有开仓并符合条件的标的物设置止盈
 async function setTakeProfit () {
   let positionList = await getAccountPosition() // 所有头寸
-  let orders = await getOpenOrders()
+  let orders1 = await getOpenOrders()
+  let orders2 = await getOpenAlgoOrders()
+  let orders = (orders1 || []).concat(orders2 || [])
   let allExchange = await getAllExchangeInfo()
   orders = orders.map(function(item){
-    item.orderId = item.orderId.toString()
+    item.orderId = (item.orderId || item.algoId).toString()
+    item.stopPrice = item.stopPrice || item.triggerPrice
+    item.time = item.time || item.updateTime
     return item
   })
   function getPricePrecisionFromTickSize(tickSize) {
@@ -365,14 +408,15 @@ async function setTakeProfit () {
   function signal (item){
     // 做多如果10天最低点高于止损位置，止损位置上移
     // 做空如果10天最高点低于止损位置，止损位置下移
-    if (!getOneOrder(item.symbol) || !getOneOrder(item.symbol).stopPrice){
+    let oneOrder = getOneOrder(item.symbol)
+    if (!oneOrder || !oneOrder.stopPrice){
       return false
     }
     if (item.positionSide == 'SHORT'){
-      return item.highestPoint < Number(getOneOrder(item.symbol).stopPrice)
+      return item.highestPoint < Number(oneOrder.stopPrice)
     }
     if (item.positionSide == 'LONG'){
-      return item.lowestPoint > Number(getOneOrder(item.symbol).stopPrice)
+      return item.lowestPoint > Number(oneOrder.stopPrice)
     }
     return false
   }
@@ -389,7 +433,6 @@ async function setTakeProfit () {
       takeProfitList.push(data)
       let stopPrice = data.positionSide == 'SHORT' ? data.highestPoint : data.lowestPoint
       let formattedStopPrice = formatPriceByTickSize(stopPrice, getTickSize(data.symbol));
-      await deleteSetStopPrice(data.symbol)
       await setStopPrice(data.symbol, data.positionSide, formattedStopPrice)
       if (data.positionSide == 'SHORT'){
         global.logger.info(data.highestPoint < Number(data.entryPrice) ? `${data.symbol}设置止盈成功` : `${data.symbol}设置止损移动成功`)
@@ -467,9 +510,10 @@ async function start () {
 async function deleteAllInvalidOrders(isDeL){
   let orders1 = await getOpenOrders()
   let orders2 = await getOpenAlgoOrders()
-  let orders = orders1.concat(orders2)
+  let orders = (orders1 || []).concat(orders2 || [])
   orders = orders.map(function(item){
     item.orderId = (item.orderId || item.algoId).toString()
+    item.time = item.time || item.updateTime
     return item
   })
   let position = await getAccountPosition()
@@ -480,7 +524,7 @@ async function deleteAllInvalidOrders(isDeL){
   // 最开始的删除策略
   for (let i in symbols) {
     let lData = orders.filter(item => (item.symbol+item.positionSide) === symbols[i]).sort((a,b) =>{
-      return (b.time || b.updateTime) - (a.time || a.updateTime)
+      return b.time - a.time
     })
     obj[symbols[i]] = lData
     for(let i2 in lData){
@@ -502,7 +546,7 @@ async function deleteAllInvalidOrders(isDeL){
     global.logger.info('开始删除无效订单')
     for (let i in invalidOrders){
       if (invalidOrders[i].algoId){
-        await deleteAlgoOrder(invalidOrders[i].symbol, invalidOrders[i].orderId)
+        await deleteAlgoOrder(invalidOrders[i].symbol, invalidOrders[i].algoId)
       } else {
         await deleteOrder(invalidOrders[i].symbol, invalidOrders[i].orderId)
       }
@@ -540,24 +584,42 @@ async function initData () {
 module.exports = async function () {
   global.logger.info('定时交易策略开始')
   // test()
-  initData()
+  await initData().catch((err) => {
+    global.errorLogger('初始化数据失败', err)
+  })
   schedule.scheduleJob('4 0 7 * * *',async function () {
-    // 更新合约交易
-    global.logger.info('更新合约对开始');
-    // await updateTime()
-    updateAllExchangeInfo()
+    try {
+      // 更新合约交易
+      global.logger.info('更新合约对开始');
+      // await updateTime()
+      await updateAllExchangeInfo()
+    } catch (error) {
+      global.errorLogger('更新合约对失败', error)
+    }
   })
   schedule.scheduleJob('10 0 8 * * *', async function () {
-    global.logger.info('获取下单交易数据下单')
-    await order()
-    // 防止币安未能及时处理延迟三秒
-    setTimeout(async function() {
-      global.logger.info('开始仓位止盈设置')
-      await setTakeProfit()
+    try {
+      global.logger.info('获取下单交易数据下单')
+      await order()
+      // 防止币安未能及时处理延迟三秒
       setTimeout(async function() {
-        global.logger.info('删除无效委托')
-        await deleteAllInvalidOrders(true)
-      }, 10000);
-    }, 3000);
+        try {
+          global.logger.info('开始仓位止盈设置')
+          await setTakeProfit()
+          setTimeout(async function() {
+            try {
+              global.logger.info('删除无效委托')
+              await deleteAllInvalidOrders(true)
+            } catch (error) {
+              global.errorLogger('删除无效委托失败', error)
+            }
+          }, 10000);
+        } catch (error) {
+          global.errorLogger('止盈设置失败', error)
+        }
+      }, 3000);
+    } catch (error) {
+      global.errorLogger('定时下单任务失败', error)
+    }
   })
 };

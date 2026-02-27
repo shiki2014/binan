@@ -21,7 +21,7 @@ function readFile(callback) {
       if (err) {
         reject(err);
         global.errorLogger(err)
-        process.exit(1)
+        return
       }
       resolve(data.toString())
     })
@@ -204,16 +204,17 @@ function getAllKlines() {
       let minQty = 0
       let maxQty = 0
       let notional = 0
+      let stepSize = 0
       for (let i in filters) {
-        if (filters[i].filterType == 'MARKET_LOT_SIZE') {
+        if (filters[i].filterType == 'MARKET_LOT_SIZE' || filters[i].filterType == 'LOT_SIZE') {
           // 市价订单数量限制
           minQty = filters[i].minQty
           maxQty = filters[i].maxQty
           stepSize = filters[i].stepSize // 进步值
         }
-        if (filters[i].filterType == 'MIN_NOTIONAL') {
+        if (filters[i].filterType == 'MIN_NOTIONAL' || filters[i].filterType == 'NOTIONAL') {
           // 最小名义价值
-          notional = filters[i].notional
+          notional = filters[i].notional || filters[i].minNotional || 0
         }
       }
       return { minQty, notional , maxQty, stepSize}
