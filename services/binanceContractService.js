@@ -21,6 +21,45 @@ function getErrorCode(error) {
   return Number(error?.response?.data?.code)
 }
 
+function isTrueLike(value) {
+  if (value === true || value === 1) return true
+  return String(value).toLowerCase() === 'true'
+}
+
+function normalizeText(value) {
+  return String(value || '').toUpperCase()
+}
+
+function normalizeIdValue(value) {
+  if (value === undefined || value === null) return ''
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'bigint') {
+    return String(value)
+  }
+  if (typeof value.toJSON === 'function') {
+    const jsonValue = value.toJSON()
+    if (jsonValue !== undefined && jsonValue !== null && typeof jsonValue !== 'object') {
+      return String(jsonValue)
+    }
+  }
+  if (typeof value.toString === 'function') {
+    const text = value.toString()
+    if (text && text !== '[object Object]') {
+      return text
+    }
+  }
+  return String(value)
+}
+
+function logAlgoOrderError(tag, error) {
+  const code = getErrorCode(error)
+  const data = error?.response?.data || error
+  if (code === -2021 || code === -4130) {
+    global.logger && global.logger.warn(`${tag}:`, data)
+    return
+  }
+  global.errorLogger(`${tag}:`, data)
+}
+
 async function getLatestPrice(symbol) {
   const markRes = await contractAxios({
     method: 'get',
@@ -277,44 +316,81 @@ async function setStopPrice(symbol, positionSide, stopPrice) {
   if (Number(normalizedStopPrice) !== Number(stopPrice)) {
     global.logger.warn(`${symbol} 止损触发价已按当前价格修正: ${stopPrice} -> ${normalizedStopPrice}`)
   }
-  let stopError = null
-  let res = await contractAxios({
-    method: 'post',
-    url: '/fapi/v1/algoOrder',
-    data: {
-      algoType: 'CONDITIONAL',
-      symbol,
+  async function clearClosePositionConflictOrders() {
+    const openAlgoOrders = await getOpenAlgoOrders(symbol)
+    if (!Array.isArray(openAlgoOrders) || !openAlgoOrders.length) {
+      return 0
+    }
+    const targetPositionSide = normalizeText(positionSide)
+    const targetSide = normalizeText(side)
+    const conflictOrders = openAlgoOrders.filter(item => {
+      if (!isTrueLike(item.closePosition)) return false
+      const itemPositionSide = normalizeText(item.positionSide)
+      const itemSide = normalizeText(item.side)
+      const positionSideMatched = !itemPositionSide || itemPositionSide === targetPositionSide
+      const sideMatched = !itemSide || itemSide === targetSide
+      return positionSideMatched && sideMatched
+    })
+    if (!conflictOrders.length) {
+      return 0
+    }
+    for (const order of conflictOrders) {
+      const algoid = order.algoId || order.algoid || order.orderId
+      if (!algoid) continue
+      await deleteAlgoOrder(symbol, algoid)
+    }
+    global.logger.info(`${symbol} 清理冲突条件单成功`, {
       positionSide,
       side,
-      type: 'STOP_MARKET',
-      closePosition: true,
-      timestamp: new Date().getTime(),
-      triggerPrice: normalizedStopPrice
-    }
-  }).catch(error => {
-    stopError = error
-    global.errorLogger('请求失败:', error?.response?.data)
-  })
+      count: conflictOrders.length
+    })
+    return conflictOrders.length
+  }
+
+  async function placeStopOrder(triggerPrice) {
+    let orderError = null
+    const orderRes = await contractAxios({
+      method: 'post',
+      url: '/fapi/v1/algoOrder',
+      data: {
+        algoType: 'CONDITIONAL',
+        symbol,
+        positionSide,
+        side,
+        type: 'STOP_MARKET',
+        closePosition: true,
+        timestamp: new Date().getTime(),
+        triggerPrice
+      }
+    }).catch(error => {
+      orderError = error
+      logAlgoOrderError(`${symbol} 设置止损失败`, error)
+    })
+    return { orderRes, orderError }
+  }
+
+  await clearClosePositionConflictOrders()
+  let { orderRes: res, orderError: stopError } = await placeStopOrder(normalizedStopPrice)
+
+  if (!res && getErrorCode(stopError) === -4130) {
+    await clearClosePositionConflictOrders()
+    const retryByConflict = await placeStopOrder(normalizedStopPrice)
+    res = retryByConflict.orderRes
+    stopError = retryByConflict.orderError
+  }
+
   if (!res && getErrorCode(stopError) === -2021) {
     const retryStopPrice = await normalizeTriggerPrice(symbol, side, normalizedStopPrice, 2)
     if (Number(retryStopPrice) !== Number(normalizedStopPrice)) {
       global.logger.warn(`${symbol} 触发价过近，二次修正后重试: ${normalizedStopPrice} -> ${retryStopPrice}`)
-      res = await contractAxios({
-        method: 'post',
-        url: '/fapi/v1/algoOrder',
-        data: {
-          algoType: 'CONDITIONAL',
-          symbol,
-          positionSide,
-          side,
-          type: 'STOP_MARKET',
-          closePosition: true,
-          timestamp: new Date().getTime(),
-          triggerPrice: retryStopPrice
-        }
-      }).catch(error => {
-        global.errorLogger('二次重试设置止损失败:', error?.response?.data)
-      })
+      const retryRes = await placeStopOrder(retryStopPrice)
+      res = retryRes.orderRes
+      stopError = retryRes.orderError
+      if (!res && getErrorCode(stopError) === -4130) {
+        await clearClosePositionConflictOrders()
+        const retryAfterClear = await placeStopOrder(retryStopPrice)
+        res = retryAfterClear.orderRes
+      }
     }
   }
   if (res) {
@@ -342,6 +418,7 @@ async function getOpenAlgoOrders(symbol) {
     method: 'get',
     url: '/fapi/v1/openAlgoOrders',
     params: {
+      ...(symbol ? { symbol } : {}),
       timestamp: new Date().getTime()
     }
   }).catch(error => {
@@ -409,17 +486,36 @@ async function deleteAlgoOrder(symbol, algoid) {
     global.logger && global.logger.info('模拟盘跳过删除条件单', { symbol, algoid })
     return {}
   }
-  const res = await contractAxios({
-    method: 'delete',
-    url: '/fapi/v1/algoOrder',
-    params: {
-      symbol,
-      algoid,
-      timestamp: new Date().getTime()
-    }
-  }).catch(error => {
-    global.errorLogger('请求失败:', error?.response?.data)
+  const normalizedAlgoId = normalizeIdValue(algoid)
+  if (!normalizedAlgoId) {
+    global.logger && global.logger.warn('删除条件单时缺少 algoId，跳过', { symbol, algoid })
+    return {}
+  }
+  async function requestDelete(paramKey) {
+    return contractAxios({
+      method: 'delete',
+      url: '/fapi/v1/algoOrder',
+      params: {
+        symbol,
+        [paramKey]: normalizedAlgoId,
+        timestamp: new Date().getTime()
+      }
+    })
+  }
+
+  let deleteError = null
+  let res = await requestDelete('algoId').catch(error => {
+    deleteError = error
   })
+  if (!res && getErrorCode(deleteError) === -1102) {
+    // 兼容部分历史环境使用 algoid 参数名
+    res = await requestDelete('algoid').catch(error => {
+      deleteError = error
+    })
+  }
+  if (!res && deleteError) {
+    global.errorLogger('请求失败:', deleteError?.response?.data)
+  }
   return res && res.data
 }
 

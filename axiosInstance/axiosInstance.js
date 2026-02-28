@@ -24,15 +24,55 @@ function getSignature(paramsString) {
   return createHmac('sha256', apiSecret).update(paramsString).digest('hex')
 }
 
+function isPlainObject(value) {
+  if (!value || typeof value !== 'object') return false
+  const proto = Object.getPrototypeOf(value)
+  return proto === Object.prototype || proto === null
+}
+
+function normalizeValueForRequest(value) {
+  if (value === undefined || value === null) return undefined
+  if (typeof value === 'bigint') return value.toString()
+  if (value instanceof Date) return value.getTime()
+  if (Array.isArray(value)) return JSON.stringify(value)
+  if (typeof value !== 'object') return value
+
+  if (!isPlainObject(value)) {
+    if (typeof value.toJSON === 'function') {
+      const jsonValue = value.toJSON()
+      if (jsonValue !== undefined && jsonValue !== null && typeof jsonValue !== 'object') {
+        return String(jsonValue)
+      }
+    }
+    if (typeof value.toString === 'function') {
+      const text = value.toString()
+      if (text && text !== '[object Object]') {
+        return text
+      }
+    }
+  }
+
+  return JSON.stringify(value)
+}
+
+function normalizeObjectForRequest(payload) {
+  const normalized = {}
+  const source = payload && typeof payload === 'object' ? payload : {}
+  for (const [key, rawValue] of Object.entries(source)) {
+    const value = normalizeValueForRequest(rawValue)
+    if (value === undefined) continue
+    normalized[key] = value
+  }
+  return normalized
+}
+
 // 对象转URL参数
 function objectToUrlParams(object) {
   const params = new URLSearchParams()
   for (const [key, value] of Object.entries(object)) {
-    if (typeof value === 'object') {
-      params.append(key, JSON.stringify(value))
-    } else {
-      params.append(key, value)
-    }
+    const normalized = normalizeValueForRequest(value)
+    if (normalized === undefined) continue
+    params.append(key, String(normalized))
   }
   return params.toString()
 }
@@ -72,13 +112,13 @@ function setConfig(config) {
   const timestamp = Date.now()
 
   if (['get', 'GET', 'delete', 'DELETE'].includes(config.method)) {
-    config.params = config.params || {}
+    config.params = normalizeObjectForRequest(config.params)
     config.params.timestamp = timestamp
     const queryString = objectToUrlParams(config.params)
     config.params.signature = getSignature(queryString)
   }
   if (['post', 'POST', 'put', 'PUT'].includes(config.method)) {
-    config.data = config.data || {}
+    config.data = normalizeObjectForRequest(config.data)
     config.data.timestamp = timestamp
 
     const dataString = objectToUrlParams(config.data)
