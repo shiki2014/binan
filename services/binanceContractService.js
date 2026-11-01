@@ -1,9 +1,12 @@
 // 合约交易
 const { contractAxios } = require('../axiosInstance/axiosInstance')
+const { getTradingParameterValue } = require('./tradingParameterService')
+const { buildOrderIdempotencyKey, createOrderIntent, completeOrderIntent } = require('./tradeJournalService')
+const { shouldAllowOrderByTrend } = require('./trendFilterService')
 require('dotenv').config();
 const TRADING_MODE = (process.env.TRADING_MODE || 'paper').toLowerCase()
 const IS_LIVE_TRADING = TRADING_MODE === 'live'
-const STOP_TRIGGER_BUFFER = Number(process.env.STOP_TRIGGER_BUFFER || 0.001)
+const DEFAULT_STOP_TRIGGER_BUFFER = Number(process.env.STOP_TRIGGER_BUFFER || 0.001)
 let tradFiAgreementSigned = false
 
 function getDecimalPlaces(value) {
@@ -89,7 +92,9 @@ async function normalizeTriggerPrice(symbol, side, triggerPrice, bufferMultiplie
   const latestPrice = await getLatestPrice(symbol)
   if (!Number.isFinite(latestPrice) || latestPrice <= 0) return trigger
 
-  const buffer = Math.max(0.0001, STOP_TRIGGER_BUFFER * bufferMultiplier)
+  const stopTriggerBuffer = Number(await getTradingParameterValue('stop_trigger_buffer', DEFAULT_STOP_TRIGGER_BUFFER))
+  const validBuffer = Number.isFinite(stopTriggerBuffer) && stopTriggerBuffer > 0 ? stopTriggerBuffer : DEFAULT_STOP_TRIGGER_BUFFER
+  const buffer = Math.max(0.0001, validBuffer * bufferMultiplier)
   let normalized = trigger
   if (side === 'SELL' && normalized >= latestPrice) {
     normalized = latestPrice * (1 - buffer)
@@ -141,15 +146,27 @@ async function getExchangeInfo() {
 }
 
 // 获取单个合约的K线数据
-async function getKlines(symbol, limit) {
+async function getKlines(symbol, limit, interval = '1d', options = {}) {
+  const normalizedInterval = String(interval || '1d').toLowerCase()
+  const allowedIntervals = ['1d', '1h']
+  const requestInterval = allowedIntervals.includes(normalizedInterval) ? normalizedInterval : '1d'
+  const startTime = Number(options.startTime)
+  const endTime = Number(options.endTime)
+  const params = {
+    symbol,
+    limit: limit || 22,
+    interval: requestInterval
+  }
+  if (Number.isFinite(startTime) && startTime > 0) {
+    params.startTime = Math.floor(startTime)
+  }
+  if (Number.isFinite(endTime) && endTime > 0) {
+    params.endTime = Math.floor(endTime)
+  }
   const res = await contractAxios({
     method: 'get',
     url: '/fapi/v1/klines',
-    params: {
-      symbol,
-      limit: limit || 22,
-      interval: '1d'
-    }
+    params
   }).catch(error => {
     global.errorLogger('K线请求失败:', error?.response?.data || error)
   })
@@ -226,60 +243,171 @@ async function setLeverage(symbol, leverage) {
 }
 
 // 合约下单带止损
-async function contractOrder({ symbol, positionSide, quantity, stopPrice, leverage }) {
-  if (!IS_LIVE_TRADING) {
-    global.logger && global.logger.info('模拟盘下单', { symbol, positionSide, quantity, stopPrice, leverage })
-    return { data: { symbol, positionSide, quantity, stopPrice, leverage, simulated: true } }
+async function contractOrder({ symbol, positionSide, quantity, stopPrice, leverage, notional }) {
+  const side = positionSide == 'LONG' ? 'BUY' : 'SELL'
+  const trendFilterResult = await shouldAllowOrderByTrend({ symbol, positionSide, side })
+  if (!trendFilterResult.allowed) {
+    global.logger && global.logger.warn('趋势过滤拦截下单', {
+      symbol,
+      positionSide,
+      side,
+      trend: trendFilterResult.trend,
+      reason: trendFilterResult.reason,
+      details: trendFilterResult.details
+    })
+    return null
   }
-  let marginTypeResData = await getPositionRisk(symbol)
-  let marginType = marginTypeResData[0].marginType
-  if (marginType == 'ISOLATED' || marginType == 'isolated') {
-    global.logger.info('无需设置逐全仓模式设置', symbol)
-  } else {
-    await setMarginType(symbol, 'ISOLATED')
-    global.logger.info('逐全仓模式设置成功', symbol)
-  }
-  await setLeverage(symbol, leverage)
-  global.logger.info('杠杆设置成功', symbol)
-  const orderPayload = {
+  const idempotencyKey = buildOrderIdempotencyKey({
     symbol,
-    side: positionSide == 'LONG' ? 'BUY' : 'SELL', // BUY or SELL
-    positionSide, // LONG 做多或 SHORT做空
-    type: 'MARKET', // 订单类型 LIMIT, MARKET, STOP, TAKE_PROFIT, STOP_MARKET, TAKE_PROFIT_MARKET, TRAILING_STOP_MARKET
-    timestamp: new Date().getTime(),
-    quantity, // 下单数量
-  }
-  let orderError = null
-  let res = await contractAxios({
-    method: 'post',
-    url: '/fapi/v1/order',
-    data: orderPayload
-  }).catch(error => {
-    orderError = error
-    global.errorLogger('下单失败:', error?.response?.data)
+    positionSide,
+    side,
+    orderType: 'MARKET',
+    quantity,
+    notional,
+    stopPrice,
+    leverage
   })
-
-  if (!res && getErrorCode(orderError) === -4411) {
-    global.logger.warn(`${symbol} 需要签署 TradFi-Perps 协议，尝试自动签署后重试`)
-    const agreementSigned = await signTradFiPerpsAgreement()
-    if (agreementSigned) {
-      res = await contractAxios({
-        method: 'post',
-        url: '/fapi/v1/order',
-        data: {
-          ...orderPayload,
-          timestamp: new Date().getTime()
-        }
-      }).catch(error => {
-        global.errorLogger('签署协议后重试下单失败:', error?.response?.data)
-      })
+  let intentId = ''
+  const initialPayload = {
+    symbol,
+    side,
+    positionSide,
+    type: 'MARKET',
+    quantity,
+    notional,
+    stopPrice,
+    leverage,
+    idempotencyKey
+  }
+  const orderIntentResult = await createOrderIntent({
+    symbol,
+    positionSide,
+    side,
+    orderType: 'MARKET',
+    quantity,
+    notional,
+    stopPrice,
+    leverage,
+    requestPayload: initialPayload,
+    idempotencyKey
+  }).then(result => {
+    return result || {}
+  }).catch(error => {
+    global.errorLogger('写入下单意图失败:', error?.message || error)
+    return {}
+  })
+  intentId = String(orderIntentResult.intentId || '')
+  if (orderIntentResult.duplicated) {
+    const duplicate = orderIntentResult.duplicateOrder || {}
+    global.logger && global.logger.warn('幂等拦截，跳过重复下单', {
+      symbol,
+      positionSide,
+      idempotencyKey,
+      duplicateIntentId: duplicate.intent_id,
+      duplicateStatus: duplicate.status,
+      duplicateOrderId: duplicate.exchange_order_id || null
+    })
+    return {
+      data: {
+        symbol,
+        positionSide,
+        quantity,
+        stopPrice,
+        leverage,
+        duplicated: true,
+        idempotencyKey,
+        duplicateIntentId: duplicate.intent_id || '',
+        duplicateOrderId: duplicate.exchange_order_id || null
+      }
     }
   }
 
-  if (res) {
-    global.logger.info('下单成功', {symbol, quantity, stopPrice})
-    await deleteSetStopPrice(symbol)
-    await setStopPrice(symbol, positionSide, stopPrice)
+  if (!IS_LIVE_TRADING) {
+    const simulatedRes = { data: { symbol, positionSide, quantity, stopPrice, leverage, simulated: true } }
+    global.logger && global.logger.info('模拟盘下单', { symbol, positionSide, quantity, stopPrice, leverage })
+    if (intentId) {
+      completeOrderIntent(intentId, {
+        status: 'simulated',
+        exchangeOrderId: null,
+        responsePayload: simulatedRes.data
+      }).catch(error => {
+        global.errorLogger('更新模拟盘订单记录失败:', error?.message || error)
+      })
+    }
+    return simulatedRes
+  }
+  let orderError = null
+  let res = null
+  try {
+    let marginTypeResData = await getPositionRisk(symbol)
+    if (!Array.isArray(marginTypeResData) || !marginTypeResData.length) {
+      throw new Error('获取持仓风险信息失败，无法下单')
+    }
+    let marginType = marginTypeResData[0].marginType
+    if (marginType == 'ISOLATED' || marginType == 'isolated') {
+      global.logger.info('无需设置逐全仓模式设置', symbol)
+    } else {
+      await setMarginType(symbol, 'ISOLATED')
+      global.logger.info('逐全仓模式设置成功', symbol)
+    }
+    await setLeverage(symbol, leverage)
+    global.logger.info('杠杆设置成功', symbol)
+    const orderPayload = {
+      symbol,
+      side, // BUY or SELL
+      positionSide, // LONG 做多或 SHORT做空
+      type: 'MARKET', // 订单类型 LIMIT, MARKET, STOP, TAKE_PROFIT, STOP_MARKET, TAKE_PROFIT_MARKET, TRAILING_STOP_MARKET
+      timestamp: new Date().getTime(),
+      quantity // 下单数量
+    }
+    res = await contractAxios({
+      method: 'post',
+      url: '/fapi/v1/order',
+      data: orderPayload
+    }).catch(error => {
+      orderError = error
+      global.errorLogger('下单失败:', error?.response?.data)
+    })
+
+    if (!res && getErrorCode(orderError) === -4411) {
+      global.logger.warn(`${symbol} 需要签署 TradFi-Perps 协议，尝试自动签署后重试`)
+      const agreementSigned = await signTradFiPerpsAgreement()
+      if (agreementSigned) {
+        res = await contractAxios({
+          method: 'post',
+          url: '/fapi/v1/order',
+          data: {
+            ...orderPayload,
+            timestamp: new Date().getTime()
+          }
+        }).catch(error => {
+          orderError = error
+          global.errorLogger('签署协议后重试下单失败:', error?.response?.data)
+        })
+      }
+    }
+
+    if (res) {
+      global.logger.info('下单成功', {symbol, quantity, stopPrice})
+      await deleteSetStopPrice(symbol)
+      await setStopPrice(symbol, positionSide, stopPrice)
+    }
+  } catch (error) {
+    orderError = orderError || error
+    global.errorLogger('下单流程异常:', error?.response?.data || error?.message || error)
+  }
+  if (intentId) {
+    const errCode = getErrorCode(orderError)
+    const errMessage = orderError?.response?.data?.msg || orderError?.message || ''
+    completeOrderIntent(intentId, {
+      status: res ? 'success' : 'failed',
+      exchangeOrderId: res?.data?.orderId || null,
+      errorCode: Number.isFinite(errCode) ? errCode : null,
+      errorMessage: errMessage || null,
+      responsePayload: res?.data || orderError?.response?.data || null
+    }).catch(error => {
+      global.errorLogger('更新订单记录失败:', error?.message || error)
+    })
   }
   return res
 }

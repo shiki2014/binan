@@ -14,13 +14,13 @@ const fs = require('fs');
 // 获取账户权益
 async function getEquity() {
   let res = await getAccountData()
-  return res.totalMarginBalance // 保证金总余额
+  return res ? res.totalMarginBalance : 0 // 保证金总余额
 }
 
 // 获取账户头寸
 async function getAccountPosition() {
   let res = await getAccountData()
-  if (!res) return
+  if (!res) return []
   let allPositions = res.positions
   return allPositions.filter((item) => {
     return Math.abs(item.positionAmt) > 0
@@ -287,7 +287,6 @@ module.exports = async function () {
   // startTracking()
   positionMonitor()
 }
-
 
 
 

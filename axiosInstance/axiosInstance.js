@@ -202,6 +202,14 @@ function handleError(error) {
   return Promise.reject(error)
 }
 
+function getResponseErrorCode(error) {
+  return Number(error?.response?.data?.code)
+}
+
+function isBackendTimeoutError(error) {
+  return error?.response?.status === 408 || getResponseErrorCode(error) === -1007
+}
+
 // 智能重试函数
 function createSmartRetryInterceptor(axiosInstance) {
   axiosInstance.interceptors.response.use(
@@ -248,6 +256,11 @@ function createSmartRetryInterceptor(axiosInstance) {
 function shouldRetryRequest(error, config, retryConfig) {
   // 网络错误
   if (isNetworkError(error)) {
+    return true;
+  }
+
+  // 币安后端超时，执行状态未知，允许重试
+  if (isBackendTimeoutError(error)) {
     return true;
   }
 
@@ -373,6 +386,7 @@ function logRetrySuccess(config) {
 
 // 获取错误类型描述
 function getErrorType(error) {
+  if (isBackendTimeoutError(error)) return '后端超时';
   if (isProxyError(error)) return '代理错误';
   if (isNetworkError(error)) return '网络错误';
   if (error.response?.status === 429) return '限流错误';
